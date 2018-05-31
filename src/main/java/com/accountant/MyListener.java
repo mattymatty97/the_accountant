@@ -520,13 +520,31 @@ public class MyListener implements EventListener {
             String sql="";
 
             try {
-                PreparedStatement stmt = conn.prepareStatement("UPDATE MemberNick SET nickname=? WHERE guildId=? AND userId=? AND expireDate IS NULL");
-                stmt.setString(1, nick);
-                stmt.setLong(2, guild.getIdLong());
-                stmt.setLong(3, user.getIdLong());
-                if (stmt.executeUpdate() > 0)
-                    stmt.getConnection().commit();
-                stmt.close();
+                PreparedStatement stmt = conn.prepareStatement("SELECT * FROM MemberNick WHERE guildId=? AND userId=? AND expireDate IS NULL");
+                stmt.setLong(1, guild.getIdLong());
+                stmt.setLong(2, user.getIdLong());
+                ResultSet rs = stmt.executeQuery();
+                if(rs.next()) {
+                    rs.close();
+                    stmt.close();
+                    stmt = conn.prepareStatement("UPDATE MemberNick SET nickname=? WHERE guildId=? AND userId=? AND expireDate IS NULL");
+                    stmt.setString(1, nick);
+                    stmt.setLong(2, guild.getIdLong());
+                    stmt.setLong(3, user.getIdLong());
+                    if (stmt.executeUpdate() > 0)
+                        stmt.getConnection().commit();
+                    stmt.close();
+                }else{
+                    rs.close();
+                    stmt.close();
+                    stmt = conn.prepareStatement("INSERT INTO MemberNick(guildId, userId, nickname) VALUES (?,?,?)");
+                    stmt.setString(3, nick);
+                    stmt.setLong(1, guild.getIdLong());
+                    stmt.setLong(2, user.getIdLong());
+                    if (stmt.executeUpdate() > 0)
+                        stmt.getConnection().commit();
+                    stmt.close();
+                }
             } catch (SQLException ex) {
                 sqlError(sql, ex);
             }
@@ -584,6 +602,7 @@ public class MyListener implements EventListener {
                     while (rs.next()) {
                         try {
                             gc.setNickname(member, rs.getString(1)).queue();
+                            restored=true;
                         }catch (Exception ignored){}
                     }
                     rs.close();
@@ -747,6 +766,12 @@ public class MyListener implements EventListener {
                         stmt1.setLong(3, role.getIdLong());
                         ctn += stmt1.executeUpdate();
                     }
+                    stmt1.close();
+                    stmt1 = conn.prepareStatement("INSERT INTO MemberNick(guildId, userId, nickname) VALUES (?,?,?)");
+                    stmt1.setLong(1, event.getGuild().getIdLong());
+                    stmt1.setLong(2, a.getUser().getIdLong());
+                    stmt1.setString(3,a.getNickname());
+                    ctn+=stmt1.executeUpdate();
                     if (ctn > 0)
                         conn.commit();
                     stmt1.close();
