@@ -40,6 +40,7 @@ public class Reconnector {
                 String password = System.getenv("DATABASE_PASSWORD");
                 Logger.logger.logGeneral("Connecting to: "+ url);
                 conn = DriverManager.getConnection("jdbc:"+url,username,password);
+                conn.setAutoCommit(false);
                 Logger.logger.logGeneral("SQL INITIALIZZATED");
                 connected = true;
             } catch (SQLException ex) {

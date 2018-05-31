@@ -56,9 +56,9 @@ public class BOT
 
         Signal.handle(new Signal("INT"), sig -> {
             Logger.started = false;
-            ac.interrupt();
             System.out.println((char)27+"[?25h");
             System.err.println(ansi().fgRed().a("Received SIGINT").reset());
+            ac.interrupt();
             api.shutdown();
             listener.close();
             Logger.tlogger.interrupt();

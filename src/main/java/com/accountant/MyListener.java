@@ -33,6 +33,7 @@ import java.util.List;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ThreadFactory;
+import java.util.stream.Collector;
 import java.util.stream.Collectors;
 
 
@@ -125,6 +126,8 @@ public class MyListener implements EventListener {
             threads.execute(() -> onMemberJoin((GuildMemberJoinEvent) event));
         else if (event instanceof GuildMemberLeaveEvent)
             threads.execute(() -> onMemberLeave((GuildMemberLeaveEvent) event));
+        else if (event instanceof GuildMemberNickChangeEvent)
+            threads.execute(() -> onMemberNick((GuildMemberNickChangeEvent) event));
     }
 
     private void onReady(ReadyEvent event) {
@@ -500,6 +503,38 @@ public class MyListener implements EventListener {
         }
     }
 
+    private void onMemberNick(GuildMemberNickChangeEvent event){
+        ResourceBundle output = ResourceBundle.getBundle("messages");
+        if (checkConnection()) {
+            Guild guild = event.getGuild();
+
+            updateDatabase(guild, output);
+            //get sender member
+            Member member = event.getMember();
+
+            User user = member.getUser();
+
+            String nick = event.getNewNick();
+
+            String partsql="UPDATE MemberRoles SET expireDate="+Timestamp.valueOf(LocalDateTime.now().plus(1,ChronoUnit.MINUTES))+" WHERE guildId="+guild.getId()+" AND userId="+user.getId()+" AND roleId=";
+            String sql="";
+
+            try {
+                PreparedStatement stmt = conn.prepareStatement("UPDATE MemberNick SET nickname=? WHERE guildId=? AND userId=? AND expireDate IS NULL");
+                stmt.setString(1, nick);
+                stmt.setLong(2, guild.getIdLong());
+                stmt.setLong(3, user.getIdLong());
+                if (stmt.executeUpdate() > 0)
+                    stmt.getConnection().commit();
+                stmt.close();
+            } catch (SQLException ex) {
+                sqlError(sql, ex);
+            }
+        } else {
+            event.getJDA().shutdown();
+            Reconnector.reconnect();
+        }
+    }
 
     private void onMemberJoin(GuildMemberJoinEvent event){
         ResourceBundle output = ResourceBundle.getBundle("messages");
@@ -517,39 +552,67 @@ public class MyListener implements EventListener {
 
             String sql="SELECT roleId FROM MemberRoles WHERE guildId="+guild.getId()+" AND userId="+user.getId()+" AND expireDate>"+Date.valueOf(LocalDate.now());
 
+            List<Role> roles = new ArrayList<>();
                 try {
                     PreparedStatement stmt = conn.prepareStatement("SELECT DISTINCT roleId FROM MemberRoles WHERE guildId=? AND userId=? AND expireDate>?");
                     stmt.setString(3, Timestamp.valueOf(LocalDateTime.now()).toString());
                     stmt.setLong(1, guild.getIdLong());
                     stmt.setLong(2, user.getIdLong());
-                    List<Role> roles = new ArrayList<>();
                     ResultSet rs = stmt.executeQuery();
                     while (rs.next()) {
-                        try {
-                            Role role = guild.getRoleById(rs.getLong(1));
-                            if (role != null) {
-                                if (!member.getRoles().contains(role))
-                                    roles.add(role);
-                                restored = true;
-                            }
-                        } catch (Exception ignored) {
+                        Role role = guild.getRoleById(rs.getLong(1));
+                        if (role != null && (role.getPosition() < guild.getSelfMember().getRoles().stream().mapToInt(Role::getPosition).max().orElse(0))) {
+                            if (!member.getRoles().contains(role))
+                                roles.add(role);
+                            restored = true;
                         }
                     }
+                    rs.close();
                     stmt.close();
+
+                try {
                     gc.addRolesToMember(member, roles).queue();
+                } catch (Exception ignored) {}
+
+                    sql="SELECT nickname FROM MemberNicks WHERE guildId="+guild.getId()+" AND userId="+user.getId()+" AND expireDate>"+Date.valueOf(LocalDate.now());
+
+                    stmt = conn.prepareStatement("SELECT DISTINCT nickname FROM MemberNick WHERE guildId=? AND userId=? AND expireDate>?");
+                    stmt.setString(3, Timestamp.valueOf(LocalDateTime.now()).toString());
+                    stmt.setLong(1, guild.getIdLong());
+                    stmt.setLong(2, user.getIdLong());
+                    rs = stmt.executeQuery();
+                    while (rs.next()) {
+                        try {
+                            gc.setNickname(member, rs.getString(1)).queue();
+                        }catch (Exception ignored){}
+                    }
+                    rs.close();
+                    stmt.close();
+
+                    int ctn=0;
                     stmt = conn.prepareStatement("DELETE FROM MemberRoles WHERE guildid=? AND userId=? AND expireDate NOT NULL ");
                     stmt.setLong(1, guild.getIdLong());
                     stmt.setLong(2, user.getIdLong());
-                    stmt.executeUpdate();
-                    conn.commit();
+                    ctn+=stmt.executeUpdate();
+                    stmt.close();
+                    stmt = conn.prepareStatement("DELETE FROM MemberNick WHERE guildid=? AND userId=? AND expireDate NOT NULL ");
+                    stmt.setLong(1, guild.getIdLong());
+                    stmt.setLong(2, user.getIdLong());
+                    ctn+=stmt.executeUpdate();
+                    if(ctn>0)
+                        conn.commit();
                     stmt.close();
                 } catch (SQLException ex) {
                     sqlError(sql, ex);
                 }
             if(restored) {
-                Logger.logger.logEvent("User " + member.getEffectiveName() + " JOINED - ROLES RESTORED", guild);
+                Logger.logger.logEvent("User " + member.getEffectiveName() + " JOINED - RESTORED", guild);
                 try {
-                    event.getGuild().getDefaultChannel().sendMessage("Welcome back " + event.getMember().getAsMention() + "\n i've restored all your roles :grimacing:").queue();
+                    EmbedBuilder eb = new EmbedBuilder();
+                    eb.setAuthor(member.getEffectiveName(),null,member.getUser().getAvatarUrl());
+                    eb.setDescription(roles.stream().map(Role::getAsMention).reduce("",(a,b)->a+" "+b));
+                    event.getGuild().getDefaultChannel().sendMessage("Welcome back " + event.getMember().getAsMention() + "\n i've restored your nickname and all your roles :grimacing:").queue();
+                    //event.getGuild().getDefaultChannel().sendMessage(eb.build()).queue();
                 } catch (Exception ignore){}
             }
             else
@@ -574,12 +637,21 @@ public class MyListener implements EventListener {
 
             String sql="UPDATE MemberRoles SET expireDate="+Timestamp.valueOf(LocalDateTime.now().plus(1,ChronoUnit.DAYS))+" WHERE guildId="+guild.getId()+" AND userId="+user.getId()+" AND expireDate=null";
                 try {
+                    int ctn=0;
                     PreparedStatement stmt = conn.prepareStatement("UPDATE MemberRoles SET expireDate=? WHERE guildId=? AND userId=? AND (expireDate IS NULL OR expireDate>?)");
                     stmt.setString(1, Timestamp.valueOf(LocalDateTime.now().plus(1, ChronoUnit.DAYS)).toString());
                     stmt.setLong(2, guild.getIdLong());
                     stmt.setLong(3, user.getIdLong());
                     stmt.setString(4, Timestamp.valueOf(LocalDateTime.now()).toString());
-                    if (stmt.executeUpdate() > 0)
+                    ctn+=stmt.executeUpdate();
+                    stmt.close();
+                    stmt = conn.prepareStatement("UPDATE MemberNick SET expireDate=? WHERE guildId=? AND userId=? AND (expireDate IS NULL OR expireDate>?)");
+                    stmt.setString(1, Timestamp.valueOf(LocalDateTime.now().plus(1, ChronoUnit.DAYS)).toString());
+                    stmt.setLong(2, guild.getIdLong());
+                    stmt.setLong(3, user.getIdLong());
+                    stmt.setString(4, Timestamp.valueOf(LocalDateTime.now()).toString());
+                    ctn+=stmt.executeUpdate();
+                    if (ctn > 0)
                         stmt.getConnection().commit();
                     stmt.close();
                 } catch (SQLException ex) {

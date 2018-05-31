@@ -35,7 +35,7 @@ public class AutoCleaner implements Runnable {
                 }
                 Thread.sleep(3600000);
             }catch (InterruptedException ex){
-                Output.println(Ansi.ansi().fgRed().a("STOPPING CLEANER THREAD").reset().toString());
+                System.err.println(Ansi.ansi().fgRed().a("STOPPING CLEANER THREAD").reset().toString());
             }
         }
     }
