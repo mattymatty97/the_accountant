@@ -7,7 +7,7 @@ import java.util.HashMap;
 import java.util.Map;
 
 public class Global {
-    public static final String version = "v1.1 - ac prj";
+    public static final String version = "v1.2 - ac prj";
     public static final String build = "1";
 
 

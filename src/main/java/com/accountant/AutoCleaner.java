@@ -14,13 +14,15 @@ public class AutoCleaner implements Runnable {
         while (!Thread.interrupted()){
             try {
                 if(last.before(Timestamp.valueOf(LocalDateTime.now().minus(1,ChronoUnit.HOURS)))){
-                    Logger.logger.logGeneral("Cleaning expired users");
+
                     String sql = "DELETE FROM MemberRoles WHERE expireDate<"+Timestamp.valueOf(LocalDateTime.now());
                         try {
                             PreparedStatement stmt = conn.prepareStatement("DELETE FROM MemberRoles WHERE expireDate<?");
                             stmt.setString(1, Timestamp.valueOf(LocalDateTime.now()).toString());
-                            stmt.executeUpdate();
-                            conn.commit();
+                            if(stmt.executeUpdate()>0){
+                                conn.commit();
+                                Logger.logger.logGeneral("Cleaning expired users");
+                            }
                             stmt.close();
                         } catch (SQLException ex) {
                             try {
@@ -36,6 +38,7 @@ public class AutoCleaner implements Runnable {
                 Thread.sleep(3600000);
             }catch (InterruptedException ex){
                 System.err.println(Ansi.ansi().fgRed().a("STOPPING CLEANER THREAD").reset().toString());
+                return;
             }
         }
     }

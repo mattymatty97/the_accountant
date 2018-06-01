@@ -42,7 +42,7 @@ import static org.fusesource.jansi.Ansi.ansi;
 public class MyListener implements EventListener {
     private Connection conn;
     private BotGuild botGuild;
-    private ExecutorService threads= Executors.newCachedThreadPool(new MyThreadFactory());
+    private ExecutorService threads= Executors.newSingleThreadExecutor(new MyThreadFactory());
 
     private class MyThreadFactory implements ThreadFactory{
         private final Queue<Integer> tQueue = new PriorityQueue<Integer>((a, b) -> b - a) {
@@ -558,6 +558,7 @@ public class MyListener implements EventListener {
         ResourceBundle output = ResourceBundle.getBundle("messages");
         if (checkConnection()) {
             boolean restored=false;
+            boolean mute=false;
             Guild guild = event.getGuild();
 
             updateDatabase(guild, output);
@@ -583,6 +584,8 @@ public class MyListener implements EventListener {
                             if (!member.getRoles().contains(role))
                                 roles.add(role);
                             restored = true;
+                            if(role.getName().matches(".*[Mm][Uu][Tt][Ee][Dd].*"))
+                                mute=true;
                         }
                     }
                     rs.close();
@@ -630,7 +633,8 @@ public class MyListener implements EventListener {
                     EmbedBuilder eb = new EmbedBuilder();
                     eb.setAuthor(member.getEffectiveName(),null,member.getUser().getAvatarUrl());
                     eb.setDescription(roles.stream().map(Role::getAsMention).reduce("",(a,b)->a+" "+b));
-                    event.getGuild().getDefaultChannel().sendMessage("Welcome back " + event.getMember().getAsMention() + "\n i've restored your nickname and all your roles :grimacing:").queue();
+                    event.getGuild().getDefaultChannel().sendMessage( output.getString("restore").replace("[mention]",member.getAsMention()) + "\n" +
+                            (mute?output.getString("restored-muted"):"")).queue();
                     //event.getGuild().getDefaultChannel().sendMessage(eb.build()).queue();
                 } catch (Exception ignore){}
             }
@@ -922,6 +926,12 @@ public class MyListener implements EventListener {
                                 stmt2.setLong(3, role.getIdLong());
                                 ctn += stmt2.executeUpdate();
                             }
+                            stmt2.close();
+                            stmt2 = conn.prepareStatement("INSERT INTO MemberNick(guildId, userId, nickname) VALUES (?,?,?)");
+                            stmt2.setLong(1, guild.getIdLong());
+                            stmt2.setLong(2, a.getUser().getIdLong());
+                            stmt2.setString(3,a.getNickname());
+                            ctn+=stmt2.executeUpdate();
                             if (ctn > 0)
                                 conn.commit();
                             stmt2.close();
