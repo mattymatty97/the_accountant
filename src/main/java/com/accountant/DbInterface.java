@@ -1,14 +1,24 @@
 package com.accountant;
 
 import java.sql.*;
+import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 import java.util.ResourceBundle;
 
 import net.dv8tion.jda.core.Permission;
 import net.dv8tion.jda.core.entities.*;
+import net.dv8tion.jda.core.events.guild.GuildJoinEvent;
+import net.dv8tion.jda.core.events.guild.GuildLeaveEvent;
+import net.dv8tion.jda.core.events.message.MessageReceivedEvent;
+import net.dv8tion.jda.core.exceptions.InsufficientPermissionException;
+import net.dv8tion.jda.core.managers.GuildController;
 
-public class BotGuild {
+@SuppressWarnings("WeakerAccess")
+public class DbInterface {
         private PreparedStatement[] rmRoleStmt = new PreparedStatement[2];
         private PreparedStatement[] adRoleStmt = new PreparedStatement[3];
         private  PreparedStatement clRoleStmt;
@@ -22,7 +32,62 @@ public class BotGuild {
         
         private Connection conn;
 
+    public void cleanDb(String sql, List<Guild> guilds) {
+        Statement stmt1, stmt2;
+        ResultSet rs;
+        try {
+            stmt1 = conn.createStatement();
+            stmt2 = conn.createStatement();
+            sql = "SELECT guildid FROM guilds";
+            rs = stmt1.executeQuery(sql);
+            while (rs.next()) {
+                boolean found = false;
+                for (Guild guild : guilds) {
+                    if (guild.getIdLong() == rs.getLong(1)) {
+                        found = true;
+                        break;
+                    }
+                }
+                if (!found) {
+                    sql = "DELETE FROM roles WHERE guildid=" + rs.getLong(1);
+                    stmt2.execute(sql);
+                    sql = "DELETE FROM guilds WHERE guildid=" + rs.getLong(1);
+                    stmt2.execute(sql);
+                    sql = "DELETE FROM MemberRoles WHERE guildid=" + rs.getLong(1);
+                    stmt2.execute(sql);
+                    sql = "DELETE FROM MemberNick WHERE guildid=" + rs.getLong(1);
+                    stmt2.execute(sql);
+                    stmt2.getConnection().commit();
+                }
+            }
+            stmt2.close();
+            stmt1.close();
+        } catch (SQLException ex) {
+            try {
+                conn.rollback();
+            } catch (SQLException ignored) {
+            }
+            Logger.logger.logError("SQLError in : " + sql);
+            Logger.logger.logError("SQLException: " + ex.getMessage());
+            Logger.logger.logError("SQLState: " + ex.getSQLState());
+            Logger.logger.logError("VendorError: " + ex.getErrorCode());
 
+        }
+    }
+
+    public void forgiveUser(ResourceBundle output, Guild guild, MessageChannel channel, User user, String sql) {
+        try {
+            PreparedStatement stmt = conn.prepareStatement("DELETE FROM MemberRoles WHERE guildid=? AND userId=?");
+            stmt.setLong(1, guild.getIdLong());
+            stmt.setLong(2, user.getIdLong());
+            stmt.executeUpdate();
+            conn.commit();
+            stmt.close();
+            channel.sendMessage(output.getString("forgive-done")).queue();
+        } catch (SQLException ex) {
+            sqlError(sql, ex);
+        }
+    }
 
     public String removeMod(Role role, Guild guild, ResourceBundle output, long messageId) {
         String sql = "";
@@ -363,12 +428,342 @@ public class BotGuild {
                         ret = true;
                     }
                 }
+                sql="DELETE FROM MemberRoles WHERE guildId="+role.getGuild().getId()+" AND roleId="+role.getId();
+                stmt = conn.prepareStatement("DELETE FROM MemberRoles WHERE guildId=? AND roleId=?");
+                stmt.setLong(1, role.getGuild().getIdLong());
+                stmt.setLong(2, role.getIdLong());
+                if(stmt.executeUpdate()>0)
+                    stmt.getConnection().commit();
+                stmt.close();
             } catch (SQLException ex) {
                 sqlError(sql, ex);
             }
         return ret;
     }
 
+    public void newGuild(GuildJoinEvent event, String sql) {
+        try {
+            Statement stmt = conn.createStatement();
+            sql = "INSERT INTO guilds(guildid, guildname) VALUES (" + event.getGuild().getIdLong() + ",'" + event.getGuild().getName().replaceAll("[\',\"]", "") + "')";
+            if (stmt.executeUpdate(sql) > 0)
+                stmt.getConnection().commit();
+            stmt.close();
+        } catch (SQLException ex) {
+            sqlError(sql, ex);
+        }
+        event.getGuild().getMembers().forEach(a -> {
+            String sql2 = "";
+            try {
+                int ctn = 0;
+                PreparedStatement stmt1 = conn.prepareStatement("INSERT INTO MemberRoles(guildId, userId, roleId) VALUES (?,?,?)");
+                stmt1.setLong(1, event.getGuild().getIdLong());
+                stmt1.setLong(2, a.getUser().getIdLong());
+                for (Role role : a.getRoles()) {
+                    stmt1.setLong(3, role.getIdLong());
+                    ctn += stmt1.executeUpdate();
+                }
+                stmt1.close();
+                stmt1 = conn.prepareStatement("INSERT INTO MemberNick(guildId, userId, nickname) VALUES (?,?,?)");
+                stmt1.setLong(1, event.getGuild().getIdLong());
+                stmt1.setLong(2, a.getUser().getIdLong());
+                stmt1.setString(3,a.getNickname());
+                ctn+=stmt1.executeUpdate();
+                if (ctn > 0)
+                    conn.commit();
+                stmt1.close();
+            } catch (SQLException ex) {
+                sqlError(sql2, ex);
+            }
+        });
+    }
+
+    public void guildLeave(GuildLeaveEvent event, String sql) {
+        try {
+            Statement stmt = conn.createStatement();
+            sql = "DELETE FROM roles WHERE guildid=" + event.getGuild().getIdLong();
+            stmt.execute(sql);
+            sql = "DELETE FROM guilds WHERE guildid=" + event.getGuild().getIdLong();
+            stmt.execute(sql);
+            sql = "DELETE FROM MemberRoles WHERE guildid=" + event.getGuild().getIdLong();
+            stmt.execute(sql);
+            stmt.getConnection().commit();
+            stmt.close();
+        } catch (SQLException ex) {
+            sqlError(sql, ex);
+        }
+    }
+
+
+
+    public void updateDatabase(Guild guild, ResourceBundle output) {
+        String sql = "";
+        try {
+            Statement stmt1 = conn.createStatement();
+            ResultSet rs;
+            sql = "SELECT * FROM guilds WHERE guildid=" + guild.getIdLong();
+            rs = stmt1.executeQuery(sql);
+            if (rs.next()) {
+                rs.close();
+                sql = "UPDATE guilds SET guildname='" + guild.getName().replaceAll("[',\"]", "") + "' WHERE guildid=" + guild.getIdLong();
+                if (stmt1.executeUpdate(sql) > 0)
+                    conn.commit();
+            } else {
+                rs.close();
+                sql = "INSERT INTO guilds(guildid, guildname) VALUES (" + guild.getIdLong() + ",'" + guild.getName().replaceAll("[',\"]", "") + "')";
+                if (stmt1.executeUpdate(sql) > 0)
+                    conn.commit();
+                autoRole(guild);
+                try {
+                    guild.getDefaultChannel().sendMessage(output.getString("event-join").replace("[version]", Global.version)).queue();
+                } catch (InsufficientPermissionException ex) {
+                    guild.getOwner().getUser().openPrivateChannel().queue((PrivateChannel channel) ->
+                            channel.sendMessage(output.getString("event-join").replace("[version]", Global.version)).queue());
+                }
+                guild.getMembers().forEach(a -> {
+                    String sql2 = "";
+                    int ctn = 0;
+                    try {
+                        PreparedStatement stmt2 = conn.prepareStatement("INSERT INTO MemberRoles(guildId, userId, roleId) VALUES (?,?,?)");
+                        stmt2.setLong(1, guild.getIdLong());
+                        stmt2.setLong(2, a.getUser().getIdLong());
+                        for (Role role : a.getRoles()) {
+                            stmt2.setLong(3, role.getIdLong());
+                            ctn += stmt2.executeUpdate();
+                        }
+                        stmt2.close();
+                        stmt2 = conn.prepareStatement("INSERT INTO MemberNick(guildId, userId, nickname) VALUES (?,?,?)");
+                        stmt2.setLong(1, guild.getIdLong());
+                        stmt2.setLong(2, a.getUser().getIdLong());
+                        stmt2.setString(3,a.getNickname());
+                        ctn+=stmt2.executeUpdate();
+                        if (ctn > 0)
+                            conn.commit();
+                        stmt2.close();
+                    } catch (SQLException ex) {
+                        sqlError(sql2, ex);
+                    }
+                });
+            }
+            stmt1.close();
+        } catch (SQLException ex) {
+            try {
+                conn.rollback();
+            } catch (SQLException ignored) {
+            }
+            Logger.logger.logError("SQLError in : " + sql);
+            Logger.logger.logError("SQLException: " + ex.getMessage());
+            Logger.logger.logError("SQLState: " + ex.getSQLState());
+            Logger.logger.logError("VendorError: " + ex.getErrorCode());
+            Logger.logger.logGeneral(ex.getStackTrace()[1].toString());
+        }
+    }
+
+    public void rePopolateDb(MessageReceivedEvent event) {
+        String sql = "";
+        try {
+            sql = "DELETE FROM MemberRoles WHERE expireDate IS NULL";
+            PreparedStatement stmt1 = conn.prepareStatement("DELETE FROM MemberRoles WHERE expireDate IS NULL");
+            stmt1.executeUpdate();
+            conn.commit();
+            stmt1.close();
+            final String sqli = sql = "INSERT INTO MemberRoles(guildId, userId, roleId) VALUES (";
+            final PreparedStatement stmt = conn.prepareStatement("INSERT INTO MemberRoles(guildId, userId, roleId) VALUES (?,?,?)");
+            event.getJDA().getGuilds().stream().flatMap(a -> a.getMembers().stream()).forEach(m -> {
+                String sql1 = "";
+                int ctn = 0;
+                try {
+                    stmt.setLong(1, m.getGuild().getIdLong());
+                    stmt.setLong(2, m.getUser().getIdLong());
+                    for (Role role : m.getRoles()) {
+                        sql1 = sqli + m.getGuild().getId() + "," + m.getUser().getId() + "," + role.getId() + ")";
+                        stmt.setLong(3, role.getIdLong());
+                        ctn += stmt.executeUpdate();
+                    }
+                    if (ctn > 0)
+                        stmt.getConnection().commit();
+                } catch (SQLException ex) {
+                    sqlError(sql1, ex);
+                }
+            });
+            stmt.close();
+        } catch (SQLException ex) {
+            sqlError(sql, ex);
+        }
+    }
+
+    public void memorizeRole(Guild guild, User user, List<Role> roles) {
+        String partsql="INSERT INTO MemberRoles(guildId, userId, roleId) VALUES ("+guild.getId()+","+user.getId()+",";
+        String sql="";
+
+        int ctn=0;
+        try {
+            PreparedStatement stmt = conn.prepareStatement("INSERT INTO MemberRoles(guildId, userId, roleId) VALUES (?,?,?)");
+            stmt.setLong(1, guild.getIdLong());
+            stmt.setLong(2, user.getIdLong());
+            for (Role role : roles) {
+                sql = partsql + role.getId() + ")";
+                stmt.setLong(3, role.getIdLong());
+                ctn += stmt.executeUpdate();
+            }
+            if (ctn > 0)
+                stmt.getConnection().commit();
+            stmt.close();
+        } catch (SQLException ex) {
+            sqlError(sql, ex);
+        }
+    }
+
+    public void removeRole(Guild guild, User user, List<Role> roles) {
+        String partsql="UPDATE MemberRoles SET expireDate="+Timestamp.valueOf(LocalDateTime.now().plus(1,ChronoUnit.MINUTES))+" WHERE guildId="+guild.getId()+" AND userId="+user.getId()+" AND roleId=";
+        String sql="";
+
+        try {
+            PreparedStatement stmt = conn.prepareStatement("UPDATE MemberRoles SET expireDate=? WHERE guildId=? AND userId=? AND roleId=? AND expireDate IS NULL");
+            stmt.setString(1, Timestamp.valueOf(LocalDateTime.now().plus(1, ChronoUnit.MINUTES)).toString());
+            stmt.setLong(2, guild.getIdLong());
+            stmt.setLong(3, user.getIdLong());
+            int ctn = 0;
+            for (Role role : roles) {
+                sql = partsql + role.getId();
+                stmt.setLong(4, role.getIdLong());
+                ctn += stmt.executeUpdate();
+            }
+            if (ctn > 0)
+                stmt.getConnection().commit();
+            stmt.close();
+        } catch (SQLException ex) {
+            sqlError(sql, ex);
+        }
+    }
+
+    public void updateNick(Guild guild, User user, String nick) {
+        String partsql="UPDATE MemberRoles SET expireDate="+Timestamp.valueOf(LocalDateTime.now().plus(1,ChronoUnit.MINUTES))+" WHERE guildId="+guild.getId()+" AND userId="+user.getId()+" AND roleId=";
+        String sql="";
+
+        try {
+            PreparedStatement stmt = conn.prepareStatement("SELECT * FROM MemberNick WHERE guildId=? AND userId=? AND expireDate IS NULL");
+            stmt.setLong(1, guild.getIdLong());
+            stmt.setLong(2, user.getIdLong());
+            ResultSet rs = stmt.executeQuery();
+            if(rs.next()) {
+                rs.close();
+                stmt.close();
+                stmt = conn.prepareStatement("UPDATE MemberNick SET nickname=? WHERE guildId=? AND userId=? AND expireDate IS NULL");
+                stmt.setString(1, nick);
+                stmt.setLong(2, guild.getIdLong());
+                stmt.setLong(3, user.getIdLong());
+                if (stmt.executeUpdate() > 0)
+                    stmt.getConnection().commit();
+                stmt.close();
+            }else{
+                rs.close();
+                stmt.close();
+                stmt = conn.prepareStatement("INSERT INTO MemberNick(guildId, userId, nickname) VALUES (?,?,?)");
+                stmt.setString(3, nick);
+                stmt.setLong(1, guild.getIdLong());
+                stmt.setLong(2, user.getIdLong());
+                if (stmt.executeUpdate() > 0)
+                    stmt.getConnection().commit();
+                stmt.close();
+            }
+        } catch (SQLException ex) {
+            sqlError(sql, ex);
+        }
+    }
+
+    public int restoreUser(Guild guild, Member member, User user, GuildController gc, List<Role> roles) {
+        boolean restored=false;
+        boolean mute=false;
+        int out=0;
+        String sql="SELECT roleId FROM MemberRoles WHERE guildId="+guild.getId()+" AND userId="+user.getId()+" AND expireDate>"+Date.valueOf(LocalDate.now());
+        try {
+            PreparedStatement stmt = conn.prepareStatement("SELECT DISTINCT roleId FROM MemberRoles WHERE guildId=? AND userId=? AND expireDate>?");
+            stmt.setString(3, Timestamp.valueOf(LocalDateTime.now()).toString());
+            stmt.setLong(1, guild.getIdLong());
+            stmt.setLong(2, user.getIdLong());
+            ResultSet rs = stmt.executeQuery();
+            while (rs.next()) {
+                Role role = guild.getRoleById(rs.getLong(1));
+                if (role != null && (role.getPosition() < guild.getSelfMember().getRoles().stream().mapToInt(Role::getPosition).max().orElse(0))) {
+                    if (!member.getRoles().contains(role))
+                        roles.add(role);
+                    restored = true;
+                    if (role.getName().matches(".*[Mm][Uu][Tt][Ee][Dd].*"))
+                        mute = true;
+                }
+            }
+            rs.close();
+            stmt.close();
+
+            try {
+                gc.modifyMemberRoles(member, roles, Collections.emptyList()).reason("Role restore").queue();
+            } catch (Exception ignored) {
+            }
+
+            sql = "SELECT nickname FROM MemberNicks WHERE guildId=" + guild.getId() + " AND userId=" + user.getId() + " AND expireDate>" + Date.valueOf(LocalDate.now());
+
+            stmt = conn.prepareStatement("SELECT DISTINCT nickname FROM MemberNick WHERE guildId=? AND userId=? AND expireDate>?");
+            stmt.setString(3, Timestamp.valueOf(LocalDateTime.now()).toString());
+            stmt.setLong(1, guild.getIdLong());
+            stmt.setLong(2, user.getIdLong());
+            rs = stmt.executeQuery();
+            while (rs.next()) {
+                try {
+                    gc.setNickname(member, rs.getString(1)).reason("restore Nickanme").queue();
+                    restored = true;
+                } catch (Exception ignored) {
+                }
+            }
+            rs.close();
+            stmt.close();
+
+            int ctn = 0;
+            stmt = conn.prepareStatement("DELETE FROM MemberRoles WHERE guildid=? AND userId=? AND expireDate NOT NULL ");
+            stmt.setLong(1, guild.getIdLong());
+            stmt.setLong(2, user.getIdLong());
+            ctn += stmt.executeUpdate();
+            stmt.close();
+            stmt = conn.prepareStatement("DELETE FROM MemberNick WHERE guildid=? AND userId=? AND expireDate NOT NULL ");
+            stmt.setLong(1, guild.getIdLong());
+            stmt.setLong(2, user.getIdLong());
+            ctn += stmt.executeUpdate();
+            if (ctn > 0)
+                conn.commit();
+            stmt.close();
+        } catch (SQLException ex) {
+            sqlError(sql, ex);
+        }
+        if(restored)
+            out=1;
+        if(mute)
+            out=2;
+        return out;
+    }
+
+    public void saveUser(Guild guild, User user) {
+        String sql="UPDATE MemberRoles SET expireDate="+Timestamp.valueOf(LocalDateTime.now().plus(1,ChronoUnit.DAYS))+" WHERE guildId="+guild.getId()+" AND userId="+user.getId()+" AND expireDate=null";
+        try {
+            int ctn=0;
+            PreparedStatement stmt = conn.prepareStatement("UPDATE MemberRoles SET expireDate=? WHERE guildId=? AND userId=? AND (expireDate IS NULL OR expireDate>?)");
+            stmt.setString(1, Timestamp.valueOf(LocalDateTime.now().plus(1, ChronoUnit.DAYS)).toString());
+            stmt.setLong(2, guild.getIdLong());
+            stmt.setLong(3, user.getIdLong());
+            stmt.setString(4, Timestamp.valueOf(LocalDateTime.now()).toString());
+            ctn+=stmt.executeUpdate();
+            stmt.close();
+            stmt = conn.prepareStatement("UPDATE MemberNick SET expireDate=? WHERE guildId=? AND userId=? AND (expireDate IS NULL OR expireDate>?)");
+            stmt.setString(1, Timestamp.valueOf(LocalDateTime.now().plus(1, ChronoUnit.DAYS)).toString());
+            stmt.setLong(2, guild.getIdLong());
+            stmt.setLong(3, user.getIdLong());
+            stmt.setString(4, Timestamp.valueOf(LocalDateTime.now()).toString());
+            ctn+=stmt.executeUpdate();
+            if (ctn > 0)
+                stmt.getConnection().commit();
+            stmt.close();
+        } catch (SQLException ex) {
+            sqlError(sql, ex);
+        }
+    }
 
 
     //remote methods
@@ -632,8 +1027,7 @@ public class BotGuild {
         return null;
     }
 
-
-    BotGuild(Connection conn) {
+    DbInterface(Connection conn) {
         synchronized (conn) {
             try {
                 stmts.add(this.rmRoleStmt[0] = conn.prepareStatement("SELECT weight FROM roles WHERE guildid=? AND roleid=?"));
