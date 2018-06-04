@@ -33,8 +33,6 @@ import java.util.List;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ThreadFactory;
-import java.util.stream.Collector;
-import java.util.stream.Collectors;
 
 
 import static org.fusesource.jansi.Ansi.ansi;
@@ -130,6 +128,7 @@ public class MyListener implements EventListener {
             threads.execute(() -> onMemberNick((GuildMemberNickChangeEvent) event));
     }
 
+
     private void onReady(ReadyEvent event) {
         String sql = "";
         List<Guild> guilds = event.getJDA().getSelfUser().getMutualGuilds();
@@ -174,7 +173,7 @@ public class MyListener implements EventListener {
         Logger.started = true;
     }
 
-
+    @SuppressWarnings("Duplicates")
     private void onMessageReceived(MessageReceivedEvent event) {
         //locales generation (dynamic strings from file selectionable by language)
         ResourceBundle output = ResourceBundle.getBundle("messages");
@@ -226,62 +225,184 @@ public class MyListener implements EventListener {
                                 Global.getGbl().setListener(null);
                             }
                             break;
-//------MOD------------------MODROLE---------------------------------------
-                        case "modrole":
+//------ADMIN---------------MOD---------------------------------------
+                        case "mod":
                             channel.sendTyping().queue();
                             //if member is allowed
-                            if (member.isOwner() || botGuild.memberIsMod(member, guild.getIdLong())) {
+                            if (member.isOwner() || botGuild.memberIsAdmin(member, guild.getIdLong())) {
                                 //if there are other arguments
                                 if (args.length > 1) {
                                     //get mentioned roles
                                     List<Role> mentions = message.getMentionedRoles();
                                     //test on second arg
+                                    Role role = null;
+                                    if(mentions.size()>=1)
+                                        role=mentions.get(0);
+
                                     switch (args[1]) {
                                         case "add":
                                             //if there is a mentioned role
-                                            Logger.logger.logMessage("modrole add", message);
-                                            if (mentions.size() >= 1) {
+                                            if(role==null)
+                                                if(args.length>2) {
+                                                    try {
+                                                        role = guild.getRoleById(args[2]);
+                                                    } catch (NumberFormatException ex) {
+                                                        channel.sendMessage(output.getString("error-roleId-invalid")).queue();
+                                                    }
+                                                }else{
+                                                    channel.sendMessage(output.getString("error-missing-param")).queue();
+                                                }
+
+                                            Logger.logger.logMessage("mod add", message);
+                                            if (role!=null) {
                                                 //call class method to add roles
-                                                channel.sendMessage(botGuild.addModRole(mentions.get(0), guild, output, messageId)).queue();
+                                                channel.sendMessage(botGuild.addMod(role, guild, output, messageId)).queue();
                                             }
                                             break;
                                         case "remove":
                                             //if there is a mentioned user
-                                            Logger.logger.logMessage("modrole remove", message);
-                                            if (mentions.size() >= 1) {
+                                            if(role==null)
+                                                if(args.length>2) {
+                                                    try {
+                                                        role = guild.getRoleById(args[2]);
+                                                    } catch (NumberFormatException ex) {
+                                                        channel.sendMessage(output.getString("error-roleId-invalid")).queue();
+                                                    }
+                                                }else{
+                                                    channel.sendMessage(output.getString("error-missing-param")).queue();
+                                                }
+
+
+                                            Logger.logger.logMessage("mod remove", message);
+                                            if (role!=null) {
                                                 //call class method to remove roles
-                                                channel.sendMessage(botGuild.removeModRole(mentions.get(0), guild, output, messageId)).queue();
+                                                channel.sendMessage(botGuild.removeMod(role, guild, output, messageId)).queue();
                                             }
                                             break;
                                         case "clear":
-                                            Logger.logger.logMessage("modrole clear", message);
-                                            channel.sendMessage(botGuild.clearModrole(guild, output, messageId)).queue();
-                                            Logger.logger.logReponse("modroles cleared", guild, messageId);
+                                            Logger.logger.logMessage("mod clear", message);
+                                            channel.sendMessage(botGuild.clearMod(guild, output, messageId)).queue();
+                                            Logger.logger.logReponse("mods cleared", guild, messageId);
                                             break;
-                                        case "auto":
-                                            Logger.logger.logMessage("modrole auto", message);
-                                            botGuild.autoModRole(event.getGuild());
-                                            channel.sendMessage(output.getString("modrole-auto")).queue();
-                                            Logger.logger.logReponse("modroles updated", guild, messageId);
                                         case "list":
-                                            //list all modroles
-                                            Logger.logger.logMessage("modrole list", message);
-                                            SendMsg(channel, botGuild.listModrole(guild, output, messageId));
+                                            //list all mods
+                                            Logger.logger.logMessage("mod list", message);
+                                            SendMsg(channel, botGuild.listMod(guild, output, messageId));
                                             break;
                                     }
 
                                 }
                                 break;
+
                             } else {
-                                Logger.logger.logMessage("modrole", message);
+                                Logger.logger.logMessage("mod", message);
                                 channel.sendMessage(output.getString("error-user-permission")).queue();
                                 Logger.logger.logReponse("user not allowed", guild, messageId);
                             }
                             break;
+//------ADMIN---------------ADMIN---------------------------------------
+                        case "admin":
+                            channel.sendTyping().queue();
+                            //if member is allowed
+                            if (member.isOwner() || botGuild.memberIsAdmin(member, guild.getIdLong())) {
+                                //if there are other arguments
+                                if (args.length > 1) {
+                                    //get mentioned roles
+                                    List<Role> mentions = message.getMentionedRoles();
+                                    Role role = null;
+                                    if(mentions.size()>=1)
+                                        role=mentions.get(0);
+
+                                    //test on second arg
+                                    switch (args[1]) {
+                                        case "add":
+                                            //if there is a mentioned role
+                                            if(role==null)
+                                                if(args.length>2) {
+                                                    try {
+                                                        role = guild.getRoleById(args[2]);
+                                                    } catch (NumberFormatException ex) {
+                                                        channel.sendMessage(output.getString("error-roleId-invalid")).queue();
+                                                    }
+                                                }else{
+                                                    channel.sendMessage(output.getString("error-missing-param")).queue();
+                                                }
+
+                                            Logger.logger.logMessage("admin add", message);
+                                            if (role!=null) {
+                                                //call class method to add roles
+                                                channel.sendMessage(botGuild.addAdmin(mentions.get(0), guild, output, messageId)).queue();
+                                            }
+                                            break;
+                                        case "remove":
+                                            //if there is a mentioned user
+                                            if(role==null)
+                                                if(args.length>2) {
+                                                    try {
+                                                        role = guild.getRoleById(args[2]);
+                                                    } catch (NumberFormatException ex) {
+                                                        channel.sendMessage(output.getString("error-roleId-invalid")).queue();
+                                                    }
+                                                }else{
+                                                    channel.sendMessage(output.getString("error-missing-param")).queue();
+                                                }
+
+                                            Logger.logger.logMessage("admin remove", message);
+                                            if (role!=null) {
+                                                //call class method to remove roles
+                                                channel.sendMessage(botGuild.removeAdmin(mentions.get(0), guild, output, messageId)).queue();
+                                            }
+                                            break;
+                                        case "clear":
+                                            Logger.logger.logMessage("admin clear", message);
+                                            channel.sendMessage(botGuild.clearAdmin(guild, output, messageId)).queue();
+                                            Logger.logger.logReponse("admins cleared", guild, messageId);
+                                            break;
+                                        case "auto":
+                                            Logger.logger.logMessage("admin auto", message);
+                                            botGuild.autoRole(event.getGuild());
+                                            channel.sendMessage(output.getString("admin-auto")).queue();
+                                            Logger.logger.logReponse("admins updated", guild, messageId);
+                                        case "list":
+                                            //list all mods
+                                            Logger.logger.logMessage("admin list", message);
+                                            SendMsg(channel, botGuild.listAdmin(guild, output, messageId));
+                                            break;
+                                    }
+
+                                }
+                                break;
+
+                            } else {
+                                Logger.logger.logMessage("admin", message);
+                                channel.sendMessage(output.getString("error-user-permission")).queue();
+                                Logger.logger.logReponse("user not allowed", guild, messageId);
+                            }
+                            break;
+                        case "roles":
+                            channel.sendTyping().queue();
+                            //if member is allowed
+                            if (member.isOwner() || botGuild.memberIsAdmin(member, guild.getIdLong())) {
+                                Logger.logger.logMessage("roles",message);
+                                StringBuilder ret = new StringBuilder();
+                                ret.append(output.getString("roles-head")).append("\n");
+                                for (Role r : guild.getRoles()){
+                                    if(!r.isPublicRole())
+                                        ret.append(r.getName()).append(" [").append(r.getId()).append("]\n");
+                                }
+                                SendMsg(channel,ret.toString());
+                                Logger.logger.logReponse("role list shown",guild,messageId);
+                            } else {
+                                Logger.logger.logMessage("roles", message);
+                                channel.sendMessage(output.getString("error-user-permission")).queue();
+                                Logger.logger.logReponse("user not allowed", guild, messageId);
+                            }
+                            break;
+//------ADMIN---------------FORGIVE---------------------------------------
                         case "forgive":
                             channel.sendTyping().queue();
                             //if member is allowed
-                            if (member.isOwner() || botGuild.memberIsMod(member, guild.getIdLong())) {
+                            if (member.isOwner() || botGuild.memberIsAdmin(member, guild.getIdLong())) {
                                 //if there are other arguments
                                 if (args.length > 1) {
                                     //get mentioned roles
@@ -307,11 +428,13 @@ public class MyListener implements EventListener {
                                 }
                                 break;
                             } else {
-                                Logger.logger.logMessage("modrole", message);
+                                Logger.logger.logMessage("mod", message);
                                 channel.sendMessage(output.getString("error-user-permission")).queue();
                                 Logger.logger.logReponse("user not allowed", guild, messageId);
                             }
                             break;
+
+//------ADMIN---------------**SUPPORT GUILD**---------------------------------------
                         default:
                             if (guildIsSupport(guild))
                                 switch (command) {
@@ -571,7 +694,12 @@ public class MyListener implements EventListener {
 
             String sql="SELECT roleId FROM MemberRoles WHERE guildId="+guild.getId()+" AND userId="+user.getId()+" AND expireDate>"+Date.valueOf(LocalDate.now());
 
-            List<Role> roles = new ArrayList<>();
+            //wait till other bots act
+            try {
+                Thread.sleep(30);
+                member = event.getJDA().getGuildById(guild.getIdLong()).getMemberById(user.getIdLong());
+                //act
+                List<Role> roles = new ArrayList<>();
                 try {
                     PreparedStatement stmt = conn.prepareStatement("SELECT DISTINCT roleId FROM MemberRoles WHERE guildId=? AND userId=? AND expireDate>?");
                     stmt.setString(3, Timestamp.valueOf(LocalDateTime.now()).toString());
@@ -584,18 +712,19 @@ public class MyListener implements EventListener {
                             if (!member.getRoles().contains(role))
                                 roles.add(role);
                             restored = true;
-                            if(role.getName().matches(".*[Mm][Uu][Tt][Ee][Dd].*"))
-                                mute=true;
+                            if (role.getName().matches(".*[Mm][Uu][Tt][Ee][Dd].*"))
+                                mute = true;
                         }
                     }
                     rs.close();
                     stmt.close();
 
-                try {
-                    gc.addRolesToMember(member, roles).queue();
-                } catch (Exception ignored) {}
+                    try {
+                        gc.modifyMemberRoles(member, roles, Collections.emptyList()).reason("Role restore").queue();
+                    } catch (Exception ignored) {
+                    }
 
-                    sql="SELECT nickname FROM MemberNicks WHERE guildId="+guild.getId()+" AND userId="+user.getId()+" AND expireDate>"+Date.valueOf(LocalDate.now());
+                    sql = "SELECT nickname FROM MemberNicks WHERE guildId=" + guild.getId() + " AND userId=" + user.getId() + " AND expireDate>" + Date.valueOf(LocalDate.now());
 
                     stmt = conn.prepareStatement("SELECT DISTINCT nickname FROM MemberNick WHERE guildId=? AND userId=? AND expireDate>?");
                     stmt.setString(3, Timestamp.valueOf(LocalDateTime.now()).toString());
@@ -604,43 +733,46 @@ public class MyListener implements EventListener {
                     rs = stmt.executeQuery();
                     while (rs.next()) {
                         try {
-                            gc.setNickname(member, rs.getString(1)).queue();
-                            restored=true;
-                        }catch (Exception ignored){}
+                            gc.setNickname(member, rs.getString(1)).reason("restore Nickanme").queue();
+                            restored = true;
+                        } catch (Exception ignored) {
+                        }
                     }
                     rs.close();
                     stmt.close();
 
-                    int ctn=0;
+                    int ctn = 0;
                     stmt = conn.prepareStatement("DELETE FROM MemberRoles WHERE guildid=? AND userId=? AND expireDate NOT NULL ");
                     stmt.setLong(1, guild.getIdLong());
                     stmt.setLong(2, user.getIdLong());
-                    ctn+=stmt.executeUpdate();
+                    ctn += stmt.executeUpdate();
                     stmt.close();
                     stmt = conn.prepareStatement("DELETE FROM MemberNick WHERE guildid=? AND userId=? AND expireDate NOT NULL ");
                     stmt.setLong(1, guild.getIdLong());
                     stmt.setLong(2, user.getIdLong());
-                    ctn+=stmt.executeUpdate();
-                    if(ctn>0)
+                    ctn += stmt.executeUpdate();
+                    if (ctn > 0)
                         conn.commit();
                     stmt.close();
                 } catch (SQLException ex) {
                     sqlError(sql, ex);
                 }
-            if(restored) {
-                Logger.logger.logEvent("User " + member.getEffectiveName() + " JOINED - RESTORED", guild);
-                try {
-                    EmbedBuilder eb = new EmbedBuilder();
-                    eb.setAuthor(member.getEffectiveName(),null,member.getUser().getAvatarUrl());
-                    eb.setDescription(roles.stream().map(Role::getAsMention).reduce("",(a,b)->a+" "+b));
-                    event.getGuild().getDefaultChannel().sendMessage( output.getString("restore").replace("[mention]",member.getAsMention()) + "\n" +
-                            (mute?output.getString("restored-muted"):"")).queue();
-                    //event.getGuild().getDefaultChannel().sendMessage(eb.build()).queue();
-                } catch (Exception ignore){}
-            }
-            else
-                Logger.logger.logEvent("User "+member.getEffectiveName()+" JOINED",guild);
+                if (restored) {
+                    Logger.logger.logEvent("User " + member.getEffectiveName() + " JOINED - RESTORED", guild);
+                    try {
+                        EmbedBuilder eb = new EmbedBuilder();
+                        eb.setAuthor(member.getEffectiveName(), null, member.getUser().getAvatarUrl());
+                        eb.setDescription(roles.stream().map(Role::getAsMention).reduce("", (a, b) -> a + " " + b));
+                        event.getGuild().getDefaultChannel().sendMessage(output.getString("restore").replace("[mention]", member.getAsMention()) + "\n" +
+                                (mute ? output.getString("restored-muted") : "")).queue();
+                        //event.getGuild().getDefaultChannel().sendMessage(eb.build()).queue();
+                    } catch (Exception ignore) {
+                    }
+                } else
+                    Logger.logger.logEvent("User " + member.getEffectiveName() + " JOINED", guild);
+            }catch (InterruptedException ignored){
 
+            }
         } else {
             event.getJDA().shutdown();
             Reconnector.reconnect();
@@ -783,7 +915,7 @@ public class MyListener implements EventListener {
                     sqlError(sql2, ex);
                 }
             });
-        botGuild.autoModRole(event.getGuild());
+        botGuild.autoRole(event.getGuild());
         updateServerCount(event.getJDA());
     }
 
@@ -819,14 +951,17 @@ public class MyListener implements EventListener {
         helpMsg.addField("ping", output.getString("help-def-ping"), false);
 
         //if is allowed to use mod commands
-        if (member.isOwner() || botGuild.memberIsMod(member, guild.getIdLong())) {
+        if (member.isOwner() || botGuild.memberIsAdmin(member, guild.getIdLong())) {
             helpMsg.addBlankField(false);
-            helpMsg.addField("MOD commands:", "", false);
+            helpMsg.addField("ADMIN commands:", "", false);
 
-            helpMsg.addField("modrole", output.getString("help-def-modrole"), false);
+            helpMsg.addField("admin", output.getString("help-def-admin"), false);
+
+            helpMsg.addField("mod", output.getString("help-def-mod"), false);
 
             helpMsg.addField("forgive", output.getString("help-def-forgive"), false);
-
+        }
+        if(member.isOwner() || botGuild.memberIsMod(member,guild.getIdLong())){
             if (guildIsSupport(guild)) {
                 helpMsg.addBlankField(false);
 
@@ -907,7 +1042,7 @@ public class MyListener implements EventListener {
                     sql = "INSERT INTO guilds(guildid, guildname) VALUES (" + guild.getIdLong() + ",'" + guild.getName().replaceAll("[',\"]", "") + "')";
                     if (stmt1.executeUpdate(sql) > 0)
                         conn.commit();
-                    botGuild.autoModRole(guild);
+                    botGuild.autoRole(guild);
                     updateServerCount(guild.getJDA());
                     try {
                         guild.getDefaultChannel().sendMessage(output.getString("event-join").replace("[version]", Global.version)).queue();
@@ -978,6 +1113,7 @@ public class MyListener implements EventListener {
         return guild.getIdLong() == Long.parseLong(System.getenv("SUPPORT_GUILD_ID"));
     }
 
+    @SuppressWarnings("Duplicates")
     public void onConsoleMessageReceived(MessageReceivedEvent event) {
         ResourceBundle output = ResourceBundle.getBundle("messages");
 
@@ -1001,48 +1137,151 @@ public class MyListener implements EventListener {
                 channel.sendMessage(output.getString("console-stopped")).queue();
                 Logger.logger.logReponse("console daemon stopped in channel:" + channel.getName(), guild, messageId);
                 break;
-            case "modrole":
+            case "mod":
                 //if member is allowed
                 if (args.length > 1) {
                     //get mentioned roles
                     List<Role> mentions = message.getMentionedRoles();
+                    Role role = null;
+                    if(mentions.size()>1)
+                        role=mentions.get(0);
+
+
                     //test on second arg
                     switch (args[1]) {
                         case "add":
                             //if there is a mentioned role
-                            Logger.logger.logRemoteMsg("modrole add", message,guild);
-                            if (mentions.size() >= 1) {
+                            if(role==null)
+                                if(args.length>2) {
+                                    try {
+                                        role = remote.getRoleById(args[2]);
+                                    } catch (NumberFormatException ex) {
+                                        channel.sendMessage(output.getString("error-roleId-invalid")).queue();
+                                    }
+                                }else{
+                                    channel.sendMessage(output.getString("error-missing-param")).queue();
+                                }
+
+                            Logger.logger.logRemoteMsg("mod add", message,guild);
+                            if (role!=null) {
                                 //call class method to add roles
-                                channel.sendMessage(botGuild.addRemoteModRole(mentions.get(0), guild, output, messageId,remote)).queue();
+                                channel.sendMessage(botGuild.addRemoteMod(role, guild, output, messageId,remote)).queue();
                             }
                             break;
                         case "remove":
                             //if there is a mentioned user
-                            Logger.logger.logRemoteMsg("modrole remove", message,guild);
-                            if (mentions.size() >= 1) {
+                            if(role==null)
+                                if(args.length>2) {
+                                    try {
+                                        role = remote.getRoleById(args[2]);
+                                    } catch (NumberFormatException ex) {
+                                        channel.sendMessage(output.getString("error-roleId-invalid")).queue();
+                                    }
+                                }else{
+                                    channel.sendMessage(output.getString("error-missing-param")).queue();
+                                }
+                            Logger.logger.logRemoteMsg("mod remove", message,guild);
+                            if (role!=null) {
                                 //call class method to remove roles
-                                channel.sendMessage(botGuild.removeRemoteModRole(mentions.get(0), guild, output, messageId,remote)).queue();
+                                channel.sendMessage(botGuild.removeRemoteMod(mentions.get(0), guild, output, messageId,remote)).queue();
                             }
                             break;
                         case "clear":
-                            Logger.logger.logRemoteMsg("modrole clear", message,guild);
-                            channel.sendMessage(botGuild.clearRemoteModrole(guild, output, messageId,remote)).queue();
-                            Logger.logger.logRemoteRep("modroles cleared", guild, messageId,remote);
+                            Logger.logger.logRemoteMsg("mod clear", message,guild);
+                            channel.sendMessage(botGuild.clearRemoteMod(guild, output, messageId,remote)).queue();
+                            Logger.logger.logRemoteRep("mods cleared", guild, messageId,remote);
                             break;
-                        case "auto":
-                            Logger.logger.logRemoteMsg("modrole auto", message,guild);
-                            botGuild.autoModRole(guild);
-                            channel.sendMessage(output.getString("modrole-auto")).queue();
-                            Logger.logger.logRemoteRep("modroles updated", guild, messageId,remote);
                         case "list":
-                            //list all modroles
-                            Logger.logger.logRemoteMsg("modrole list", message,guild);
-                            SendMsg(channel, botGuild.listRemoteModrole(guild, output, messageId,remote));
+                            //list all mods
+                            Logger.logger.logRemoteMsg("mod list", message,guild);
+                            SendMsg(channel, botGuild.listRemoteMod(guild, output, messageId,remote));
                             break;
 
                     }
 
                 }
+                break;
+            case "admin":
+                //if member is allowed
+                if (args.length > 1) {
+                    //get mentioned roles
+                    List<Role> mentions = message.getMentionedRoles();
+                    Role role = null;
+                    if(mentions.size()>1)
+                        role=mentions.get(0);
+
+
+                    //test on second arg
+                    switch (args[1]) {
+                        case "add":
+                            //if there is a mentioned role
+                            if(role==null)
+                                if(args.length>2) {
+                                    try {
+                                        role = remote.getRoleById(args[2]);
+                                    } catch (NumberFormatException ex) {
+                                        channel.sendMessage(output.getString("error-roleId-invalid")).queue();
+                                    }
+                                }else{
+                                    channel.sendMessage(output.getString("error-missing-param")).queue();
+                                }
+
+                            Logger.logger.logRemoteMsg("mod add", message,guild);
+                            if (role!=null) {
+                                //call class method to add roles
+                                channel.sendMessage(botGuild.addRemoteAdmin(role, guild, output, messageId,remote)).queue();
+                            }
+                            break;
+                        case "remove":
+                            //if there is a mentioned user
+                            if(role==null)
+                                if(args.length>2) {
+                                    try {
+                                        role = remote.getRoleById(args[2]);
+                                    } catch (NumberFormatException ex) {
+                                        channel.sendMessage(output.getString("error-roleId-invalid")).queue();
+                                    }
+                                }else{
+                                    channel.sendMessage(output.getString("error-missing-param")).queue();
+                                }
+                            Logger.logger.logRemoteMsg("mod remove", message,guild);
+                            if (role!=null) {
+                                //call class method to remove roles
+                                channel.sendMessage(botGuild.removeRemoteAdmin(mentions.get(0), guild, output, messageId,remote)).queue();
+                            }
+                            break;
+                        case "clear":
+                            Logger.logger.logRemoteMsg("mod clear", message,guild);
+                            channel.sendMessage(botGuild.clearRemoteAdmin(guild, output, messageId,remote)).queue();
+                            Logger.logger.logRemoteRep("mods cleared", guild, messageId,remote);
+                            break;
+                        case "auto":
+                            Logger.logger.logRemoteMsg("mod auto", message,guild);
+                            botGuild.autoRole(guild);
+                            channel.sendMessage(output.getString("mod-auto")).queue();
+                            Logger.logger.logRemoteRep("mods updated", guild, messageId,remote);
+                        case "list":
+                            //list all mods
+                            Logger.logger.logRemoteMsg("mod list", message,guild);
+                            SendMsg(channel, botGuild.listRemoteAdmin(guild, output, messageId,remote));
+                            break;
+
+                    }
+
+                }
+                break;
+            case "roles":
+                channel.sendTyping().queue();
+                //if member is allowed
+                Logger.logger.logMessage("roles",message);
+                StringBuilder ret = new StringBuilder();
+                ret.append(output.getString("roles-head")).append("\n");
+                for (Role r : remote.getRoles()){
+                    if(!r.isPublicRole())
+                        ret.append(r.getName()).append(" [").append(r.getId()).append("]\n");
+                }
+                SendMsg(channel,ret.toString());
+                Logger.logger.logReponse("role list shown",guild,messageId);
                 break;
             case "whoami":
                 Logger.logger.logMessage("whoami", message);
