@@ -44,7 +44,7 @@ public class DbInterface {
             while (rs.next()) {
                 boolean found = false;
                 for (Guild guild : guilds) {
-                    if (guild.getIdLong() == rs.getLong(1)) {
+                    if (guild.getIdLong() == rs.getLong("guildid")) {
                         found = true;
                         break;
                     }
@@ -103,7 +103,7 @@ public class DbInterface {
                 stmt.setLong(2, role.getIdLong());
                 rs = stmt.executeQuery();
                 if (rs.next()) {
-                    if (rs.getInt(1) == 2) {
+                    if (rs.getInt("weight") == 2) {
                         rs.close();
                         stmt = rmRoleStmt[1];
                         sql = "DELETE FROM roles WHERE guildid=" + guild.getId() + " AND roleid=" + role.getIdLong();
@@ -135,13 +135,13 @@ public class DbInterface {
         synchronized (conn) {
             try {
                 stmt = rmRoleStmt[0];
-                sql = "SELECT * FROM roles WHERE guildid=" + guild.getId() + " AND roleid=" + role.getIdLong();
+                sql = "SELECT weight FROM roles WHERE guildid=" + guild.getId() + " AND roleid=" + role.getIdLong();
                 synchronized (rmRoleStmt) {
                     stmt.setLong(1, guild.getIdLong());
                     stmt.setLong(2, role.getIdLong());
                     rs = stmt.executeQuery();
                     if (rs.next()) {
-                        if (rs.getInt(1) == 1) {
+                        if (rs.getInt("weight") == 1) {
                             rs.close();
                             stmt = rmRoleStmt[1];
                             sql = "DELETE FROM roles WHERE guildid=" + guild.getId() + " AND roleid=" + role.getIdLong();
@@ -343,7 +343,7 @@ public class DbInterface {
                 rs = stmt.executeQuery();
                 while (rs.next()) {
                     for (Role role : roles) {
-                        if (role.getIdLong() == rs.getLong(1)) {
+                        if (role.getIdLong() == rs.getLong("roleid")) {
                             rs.close();
                             return true;
                         }
@@ -670,7 +670,7 @@ public class DbInterface {
             stmt.setLong(2, user.getIdLong());
             ResultSet rs = stmt.executeQuery();
             while (rs.next()) {
-                Role role = guild.getRoleById(rs.getLong(1));
+                Role role = guild.getRoleById(rs.getLong("roleId"));
                 if (role != null && (role.getPosition() < guild.getSelfMember().getRoles().stream().mapToInt(Role::getPosition).max().orElse(0))) {
                     if (!member.getRoles().contains(role))
                         roles.add(role);
@@ -696,7 +696,7 @@ public class DbInterface {
             rs = stmt.executeQuery();
             while (rs.next()) {
                 try {
-                    gc.setNickname(member, rs.getString(1)).reason("restore Nickanme").queue();
+                    gc.setNickname(member, rs.getString("nickname")).reason("restore Nickanme").queue();
                     restored = true;
                 } catch (Exception ignored) {
                 }
@@ -768,7 +768,7 @@ public class DbInterface {
                 stmt.setLong(2, role.getIdLong());
                 rs = stmt.executeQuery();
                 if (rs.next()) {
-                    if (rs.getInt(1) == 2) {
+                    if (rs.getInt("weight") == 2) {
                         rs.close();
                         stmt = rmRoleStmt[1];
                         sql = "(remote) DELETE FROM roles WHERE guildid=" + guild.getId() + " AND roleid=" + role.getIdLong();
@@ -799,13 +799,13 @@ public class DbInterface {
         ResultSet rs;
         try {
             stmt = rmRoleStmt[0];
-            sql = "(remote) SELECT * FROM roles WHERE guildid=" + guild.getId() + " AND roleid=" + role.getIdLong();
+            sql = "(remote) SELECT weight FROM roles WHERE guildid=" + guild.getId() + " AND roleid=" + role.getIdLong();
             synchronized (rmRoleStmt) {
                 stmt.setLong(1, guild.getIdLong());
                 stmt.setLong(2, role.getIdLong());
                 rs = stmt.executeQuery();
                 if (rs.next()) {
-                    if (rs.getInt(1) == 1) {
+                    if (rs.getInt("weight") == 1) {
                         rs.close();
                         stmt = rmRoleStmt[1];
                         sql = "(remote) DELETE FROM roles WHERE guildid=" + guild.getId() + " AND roleid=" + role.getIdLong();
@@ -993,7 +993,7 @@ public class DbInterface {
         stmt.setLong(2, type);
         rs = stmt.executeQuery();
         while (rs.next()) {
-            Role role = guild.getRoleById(rs.getLong(1));
+            Role role = guild.getRoleById(rs.getLong("roleid"));
             if (role != null) {
                 ret.append("\n");
                 ret.append(role.getName());

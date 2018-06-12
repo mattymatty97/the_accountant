@@ -23,6 +23,8 @@ public class BOT
 
         testEnv();
 
+        Thread mine = Thread.currentThread();
+
 
 
         Logger.tlogger.setPriority(Thread.NORM_PRIORITY - 2);
@@ -55,6 +57,7 @@ public class BOT
         MyListener listener = new MyListener(conn);
 
         Signal.handle(new Signal("INT"), sig -> {
+            mine.interrupt();
             Logger.started = false;
             System.out.println((char)27+"[?25h");
             System.err.println(ansi().fgRed().a("Received SIGINT").reset());
