@@ -26,20 +26,21 @@ import java.io.IOException;
 import java.sql.*;
 import java.util.*;
 import java.util.List;
-import java.util.concurrent.ExecutionException;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
-import java.util.concurrent.ThreadFactory;
+import java.util.concurrent.*;
+import java.util.concurrent.locks.Condition;
+import java.util.concurrent.locks.ReentrantLock;
 
 
 import static org.fusesource.jansi.Ansi.ansi;
 
+
+@SuppressWarnings("WeakerAccess")
 public class MyListener implements EventListener {
     private Connection conn;
     private DbInterface dbInterface;
-    private ExecutorService eventThreads = Executors.newCachedThreadPool(new MyThreadFactory());
+    private static ExecutorService eventThreads = Executors.newCachedThreadPool(new MyThreadFactory());
 
-    private class MyThreadFactory implements ThreadFactory{
+    private static class MyThreadFactory implements ThreadFactory{
         private final Queue<Integer> tQueue = new PriorityQueue<Integer>((a, b) -> b - a) {
             @Override
             public synchronized boolean add(Integer e) {
@@ -78,7 +79,7 @@ public class MyListener implements EventListener {
         }
     }
 
-    private ExecutorService dbExecutor = Executors.newSingleThreadExecutor(a->new Thread(a,"DB Thread"));
+    static PausableSingleThreadExecutor dbExecutor = new PausableSingleThreadExecutor(a->new Thread(a,"DB Thread"));
 
     @Override
     public void onEvent(Event event)
@@ -724,18 +725,18 @@ public class MyListener implements EventListener {
 
     private void onGuildJoin(GuildJoinEvent event) {
         ResourceBundle output = ResourceBundle.getBundle("messages");
-        String sql = "";
-        //search for existent informations class for server
         Logger.logger.logEvent("GUILD HAS JOINED", event.getGuild());
         try {
-            event.getGuild().getDefaultChannel().sendMessage(output.getString("event-join").replace("[version]",Global.version)).queue();
-        } catch (InsufficientPermissionException ex) {
-            event.getGuild().getOwner().getUser().openPrivateChannel().queue((PrivateChannel channel) ->
-                    channel.sendMessage(output.getString("event-join").replace("[version]",Global.version)).queue());
-        }
-        try {
-            dbExecutor.submit(()->dbInterface.newGuild(event, sql)).get();
-            dbExecutor.submit(()->dbInterface.autoRole(event.getGuild())).get();
+            if(!dbExecutor.submit(()->dbInterface.guildIsInDb(event.getGuild())).get()) {
+                try {
+                    event.getGuild().getDefaultChannel().sendMessage(output.getString("event-join").replace("[version]", Global.version)).queue();
+                } catch (InsufficientPermissionException ex) {
+                    event.getGuild().getOwner().getUser().openPrivateChannel().queue((PrivateChannel channel) ->
+                            channel.sendMessage(output.getString("event-join").replace("[version]", Global.version)).queue());
+                }
+                dbExecutor.submit(() -> dbInterface.newGuild(event.getGuild())).get();
+                dbExecutor.submit(() -> dbInterface.autoRole(event.getGuild())).get();
+            }
         }catch (InterruptedException ignored){}
         catch (Exception e){
             e.printStackTrace();
@@ -747,10 +748,9 @@ public class MyListener implements EventListener {
 
 
     private void onGuildLeave(GuildLeaveEvent event) {
-        String sql = "";
         Logger.logger.logEvent("GUILD HAS LEAVED", event.getGuild());
         try {
-            dbExecutor.submit(()->dbInterface.guildLeave(event, sql)).get();
+            dbExecutor.submit(()->dbInterface.guildLeave(event.getGuild())).get();
         } catch (InterruptedException ignored) {
         } catch (ExecutionException e) {
             e.printStackTrace();
@@ -1122,4 +1122,79 @@ public class MyListener implements EventListener {
         } catch (SQLException ignored) {
         }
     }
+
+
+
+    static public class PausableSingleThreadExecutor extends ThreadPoolExecutor{
+        private boolean isPaused;
+
+        private ReentrantLock lock = new ReentrantLock();
+        private Condition condition = lock.newCondition();
+        private int ctn;
+
+
+        public PausableSingleThreadExecutor(ThreadFactory threadFactory) {
+            super(1, 1, 60L, TimeUnit.SECONDS, new LinkedBlockingQueue<>(), threadFactory);
+        }
+
+        @Override
+        protected void beforeExecute(Thread t, Runnable r) {
+            super.beforeExecute(t, r);
+            lock.lock();
+            try {
+                while (isPaused) {
+                    ctn++;
+                    condition.await();
+                    ctn--;
+                }
+            } catch (InterruptedException ie) {
+                t.interrupt();
+            } finally {
+                lock.unlock();
+            }
+        }
+
+        public boolean isRunning() {
+            return !isPaused && ctn==0;
+        }
+
+        public boolean isPaused() {
+            return isPaused && ctn==1;
+        }
+
+        /**
+         * Pause the execution
+         */
+        public void pause() throws InterruptedException{
+            lock.lock();
+            try {
+                isPaused = true;
+            } finally {
+                lock.unlock();
+            }
+            while (ctn==0){
+                if(Thread.currentThread().isInterrupted())
+                    throw new InterruptedException();
+            }
+        }
+
+        /**
+         * Resume pool execution
+         */
+        public void resume() {
+            lock.lock();
+            try {
+                isPaused = false;
+                condition.signalAll();
+            } finally {
+                lock.unlock();
+            }
+        }
+    }
+
+
+
+
+
+
 }

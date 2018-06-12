@@ -13,24 +13,25 @@ import net.dv8tion.jda.core.Permission;
 import net.dv8tion.jda.core.entities.*;
 import net.dv8tion.jda.core.events.guild.GuildJoinEvent;
 import net.dv8tion.jda.core.events.guild.GuildLeaveEvent;
+import net.dv8tion.jda.core.events.guild.member.GuildMemberNickChangeEvent;
 import net.dv8tion.jda.core.events.message.MessageReceivedEvent;
 import net.dv8tion.jda.core.exceptions.InsufficientPermissionException;
 import net.dv8tion.jda.core.managers.GuildController;
 
 @SuppressWarnings("WeakerAccess")
 public class DbInterface {
-        private PreparedStatement[] rmRoleStmt = new PreparedStatement[2];
-        private PreparedStatement[] adRoleStmt = new PreparedStatement[3];
-        private  PreparedStatement clRoleStmt;
-        private  PreparedStatement lsRoleStmt;
-        private  PreparedStatement isModStmt;
-        private  PreparedStatement isAdminStmt;
-        private  PreparedStatement[] delRoleStmt = new PreparedStatement[2];
-        private  PreparedStatement[] aRoleStmt = new PreparedStatement[3];
+    private PreparedStatement[] rmRoleStmt = new PreparedStatement[2];
+    private PreparedStatement[] adRoleStmt = new PreparedStatement[3];
+    private PreparedStatement clRoleStmt;
+    private PreparedStatement lsRoleStmt;
+    private PreparedStatement isModStmt;
+    private PreparedStatement isAdminStmt;
+    private PreparedStatement[] delRoleStmt = new PreparedStatement[2];
+    private PreparedStatement[] aRoleStmt = new PreparedStatement[3];
 
-        private List<PreparedStatement> stmts = new ArrayList<>(29);
-        
-        private Connection conn;
+    private List<PreparedStatement> stmts = new ArrayList<>(29);
+
+    private Connection conn;
 
     public void cleanDb(String sql, List<Guild> guilds) {
         Statement stmt1, stmt2;
@@ -94,35 +95,35 @@ public class DbInterface {
         String ret;
         PreparedStatement stmt;
         ResultSet rs;
-            try {
-                stmt = rmRoleStmt[0];
-                sql = "SELECT weight FROM roles WHERE guildid=" + guild.getId() + " AND roleid=" + role.getIdLong();
-                synchronized (rmRoleStmt) {
-                    stmt.setLong(1, guild.getIdLong());
-                    stmt.setLong(2, role.getIdLong());
-                    rs = stmt.executeQuery();
-                    if (rs.next()) {
-                        if(rs.getInt(1)==2) {
-                            rs.close();
-                            stmt = rmRoleStmt[1];
-                            sql = "DELETE FROM roles WHERE guildid=" + guild.getId() + " AND roleid=" + role.getIdLong();
-                            stmt.setLong(1, guild.getIdLong());
-                            stmt.setLong(2, role.getIdLong());
-                            stmt.setLong(3, 2);
-                            stmt.executeUpdate();
-                            stmt.getConnection().commit();
-                            ret = output.getString("mod-remove");
-                            Logger.logger.logReponse("removed role " + role.getName(), guild, messageId);
-                            return ret;
-                        }
+        try {
+            stmt = rmRoleStmt[0];
+            sql = "SELECT weight FROM roles WHERE guildid=" + guild.getId() + " AND roleid=" + role.getIdLong();
+            synchronized (rmRoleStmt) {
+                stmt.setLong(1, guild.getIdLong());
+                stmt.setLong(2, role.getIdLong());
+                rs = stmt.executeQuery();
+                if (rs.next()) {
+                    if (rs.getInt(1) == 2) {
+                        rs.close();
+                        stmt = rmRoleStmt[1];
+                        sql = "DELETE FROM roles WHERE guildid=" + guild.getId() + " AND roleid=" + role.getIdLong();
+                        stmt.setLong(1, guild.getIdLong());
+                        stmt.setLong(2, role.getIdLong());
+                        stmt.setLong(3, 2);
+                        stmt.executeUpdate();
+                        stmt.getConnection().commit();
+                        ret = output.getString("mod-remove");
+                        Logger.logger.logReponse("removed role " + role.getName(), guild, messageId);
+                        return ret;
                     }
-                    rs.close();
-                    ret = output.getString("error-mod-missing");
-                    Logger.logger.logReponse("role not mod", guild, messageId);
                 }
-            } catch (SQLException ex) {
-                return sqlError(sql, ex);
+                rs.close();
+                ret = output.getString("error-mod-missing");
+                Logger.logger.logReponse("role not mod", guild, messageId);
             }
+        } catch (SQLException ex) {
+            return sqlError(sql, ex);
+        }
         return ret;
     }
 
@@ -140,7 +141,7 @@ public class DbInterface {
                     stmt.setLong(2, role.getIdLong());
                     rs = stmt.executeQuery();
                     if (rs.next()) {
-                        if(rs.getInt(1)==1) {
+                        if (rs.getInt(1) == 1) {
                             rs.close();
                             stmt = rmRoleStmt[1];
                             sql = "DELETE FROM roles WHERE guildid=" + guild.getId() + " AND roleid=" + role.getIdLong();
@@ -170,40 +171,40 @@ public class DbInterface {
         String ret;
         PreparedStatement stmt;
         ResultSet rs;
-            try {
-                stmt = adRoleStmt[0];
-                sql = "SELECT * FROM roles WHERE guildid=" + guild.getId() + " AND roleid=" + role.getIdLong();
-                synchronized (adRoleStmt) {
+        try {
+            stmt = adRoleStmt[0];
+            sql = "SELECT * FROM roles WHERE guildid=" + guild.getId() + " AND roleid=" + role.getIdLong();
+            synchronized (adRoleStmt) {
+                stmt.setLong(1, guild.getIdLong());
+                stmt.setLong(2, role.getIdLong());
+                rs = stmt.executeQuery();
+                if (!rs.next()) {
+                    rs.close();
+                    stmt = adRoleStmt[1];
+                    sql = "INSERT INTO roles (guildid,roleid,rolename) VALUES (" + guild.getId() + "," + role.getIdLong() + ",'" + role.getName().replaceAll("[\',\"]", "") + "')";
                     stmt.setLong(1, guild.getIdLong());
                     stmt.setLong(2, role.getIdLong());
-                    rs = stmt.executeQuery();
-                    if (!rs.next()) {
+                    stmt.setString(3, role.getName().replaceAll("[\',\"]", ""));
+                    stmt.setLong(4, 2);
+                    if (stmt.executeUpdate() > 0)
+                        stmt.getConnection().commit();
+                    ret = output.getString("mod-add");
+                    Logger.logger.logReponse("added role " + role.getName(), guild, messageId);
+                } else {
+                    if (rs.getInt(1) == 1) {
                         rs.close();
-                        stmt = adRoleStmt[1];
-                        sql = "INSERT INTO roles (guildid,roleid,rolename) VALUES (" + guild.getId() + "," + role.getIdLong() + ",'" + role.getName().replaceAll("[\',\"]", "") + "')";
-                        stmt.setLong(1, guild.getIdLong());
-                        stmt.setLong(2, role.getIdLong());
-                        stmt.setString(3, role.getName().replaceAll("[\',\"]", ""));
-                        stmt.setLong(4, 2);
-                        if (stmt.executeUpdate() > 0)
-                            stmt.getConnection().commit();
-                        ret = output.getString("mod-add");
-                        Logger.logger.logReponse("added role " + role.getName(), guild, messageId);
+                        ret = output.getString("error-admin-exists");
+                        Logger.logger.logReponse("role is admin", guild, messageId);
                     } else {
-                        if(rs.getInt(1)==1){
-                            rs.close();
-                            ret = output.getString("error-admin-exists");
-                            Logger.logger.logReponse("role is admin", guild, messageId);
-                        }else {
-                            rs.close();
-                            ret = output.getString("error-mod-exists");
-                            Logger.logger.logReponse("role is mod", guild, messageId);
-                        }
+                        rs.close();
+                        ret = output.getString("error-mod-exists");
+                        Logger.logger.logReponse("role is mod", guild, messageId);
                     }
                 }
-            } catch (SQLException ex) {
-                return sqlError(sql, ex);
             }
+        } catch (SQLException ex) {
+            return sqlError(sql, ex);
+        }
         return ret;
     }
 
@@ -212,47 +213,47 @@ public class DbInterface {
         String ret;
         PreparedStatement stmt;
         ResultSet rs;
-            try {
-                stmt = adRoleStmt[0];
-                sql = "SELECT * FROM roles WHERE guildid=" + guild.getId() + " AND roleid=" + role.getIdLong();
-                synchronized (adRoleStmt) {
+        try {
+            stmt = adRoleStmt[0];
+            sql = "SELECT * FROM roles WHERE guildid=" + guild.getId() + " AND roleid=" + role.getIdLong();
+            synchronized (adRoleStmt) {
+                stmt.setLong(1, guild.getIdLong());
+                stmt.setLong(2, role.getIdLong());
+                rs = stmt.executeQuery();
+                if (!rs.next()) {
+                    rs.close();
+                    stmt = adRoleStmt[1];
+                    sql = "INSERT INTO roles (guildid,roleid,rolename) VALUES (" + guild.getId() + "," + role.getIdLong() + ",'" + role.getName().replaceAll("[\',\"]", "") + "')";
                     stmt.setLong(1, guild.getIdLong());
                     stmt.setLong(2, role.getIdLong());
-                    rs = stmt.executeQuery();
-                    if (!rs.next()) {
+                    stmt.setString(3, role.getName().replaceAll("[\',\"]", ""));
+                    stmt.setLong(4, 1);
+                    if (stmt.executeUpdate() > 0)
+                        stmt.getConnection().commit();
+                    ret = output.getString("admin-add");
+                    Logger.logger.logReponse("added role " + role.getName(), guild, messageId);
+                } else {
+                    if (rs.getInt(1) == 2) {
                         rs.close();
-                        stmt = adRoleStmt[1];
-                        sql = "INSERT INTO roles (guildid,roleid,rolename) VALUES (" + guild.getId() + "," + role.getIdLong() + ",'" + role.getName().replaceAll("[\',\"]", "") + "')";
+                        stmt = adRoleStmt[2];
+                        sql = "UPDATE roles SET weight=1 WHERE guildId=" + guild.getId() + " AND roleId=" + role.getIdLong();
                         stmt.setLong(1, guild.getIdLong());
                         stmt.setLong(2, role.getIdLong());
-                        stmt.setString(3, role.getName().replaceAll("[\',\"]", ""));
-                        stmt.setLong(4, 1);
                         if (stmt.executeUpdate() > 0)
                             stmt.getConnection().commit();
-                        ret = output.getString("admin-add");
-                        Logger.logger.logReponse("added role " + role.getName(), guild, messageId);
-                    } else {
-                        if(rs.getInt(1)==2){
-                            rs.close();
-                            stmt = adRoleStmt[2];
-                            sql = "UPDATE roles SET weight=1 WHERE guildId=" + guild.getId() + " AND roleId=" + role.getIdLong();
-                            stmt.setLong(1, guild.getIdLong());
-                            stmt.setLong(2, role.getIdLong());
-                            if (stmt.executeUpdate() > 0)
-                                stmt.getConnection().commit();
-                            ret = output.getString("admin-update");
-                            Logger.logger.logReponse("role updated" + role.getName(), guild, messageId);
+                        ret = output.getString("admin-update");
+                        Logger.logger.logReponse("role updated" + role.getName(), guild, messageId);
 
-                        }else {
-                            rs.close();
-                            ret = output.getString("error-admin-exists");
-                            Logger.logger.logReponse("role is admin", guild, messageId);
-                        }
+                    } else {
+                        rs.close();
+                        ret = output.getString("error-admin-exists");
+                        Logger.logger.logReponse("role is admin", guild, messageId);
                     }
                 }
-            } catch (SQLException ex) {
-                return sqlError(sql, ex);
             }
+        } catch (SQLException ex) {
+            return sqlError(sql, ex);
+        }
         return ret;
     }
 
@@ -277,7 +278,7 @@ public class DbInterface {
                 stmt.executeUpdate();
                 stmt.getConnection().commit();
             }
-            if(type==1)
+            if (type == 1)
                 ret = output.getString("admin-clear");
             else
                 ret = output.getString("mod-clear");
@@ -292,13 +293,13 @@ public class DbInterface {
         String sql = "";
         StringBuilder ret = new StringBuilder(output.getString("mod-list"));
         PreparedStatement stmt;
-            try {
-                stmt = lsRoleStmt;
-                sql = "SELECT roleid FROM roles WHERE guildid=" + guild.getIdLong();
-                syncModList(guild, ret, stmt,2);
-            } catch (SQLException ex) {
-                return sqlError(sql, ex);
-            }
+        try {
+            stmt = lsRoleStmt;
+            sql = "SELECT roleid FROM roles WHERE guildid=" + guild.getIdLong();
+            syncModList(guild, ret, stmt, 2);
+        } catch (SQLException ex) {
+            return sqlError(sql, ex);
+        }
         Logger.logger.logReponse("listed mods", guild, messageId);
         return ret.toString();
     }
@@ -310,7 +311,7 @@ public class DbInterface {
         try {
             stmt = lsRoleStmt;
             sql = "SELECT roleid FROM roles WHERE guildid=" + guild.getIdLong();
-            syncModList(guild, ret, stmt,1);
+            syncModList(guild, ret, stmt, 1);
         } catch (SQLException ex) {
             return sqlError(sql, ex);
         }
@@ -331,7 +332,7 @@ public class DbInterface {
         List<Role> roles = member.getRoles();
         PreparedStatement stmt;
         ResultSet rs;
-        if(member.getUser().getIdLong()==Long.parseLong(System.getenv("OWNER_ID")))
+        if (member.getUser().getIdLong() == Long.parseLong(System.getenv("OWNER_ID")))
             return true;
 
         try {
@@ -369,39 +370,38 @@ public class DbInterface {
                     role.hasPermission(Permission.MANAGE_SERVER) ||
                     role.hasPermission(Permission.MANAGE_ROLES))
 
-                    try {
-                        stmt = aRoleStmt[0];
-                        sql = "SELECT weight FROM roles WHERE guildid=" + guildId + " AND roleid=" + role.getIdLong();
-                        synchronized (aRoleStmt) {
+                try {
+                    stmt = aRoleStmt[0];
+                    sql = "SELECT weight FROM roles WHERE guildid=" + guildId + " AND roleid=" + role.getIdLong();
+                    synchronized (aRoleStmt) {
+                        stmt.setLong(1, guildId);
+                        stmt.setLong(2, role.getIdLong());
+                        rs = stmt.executeQuery();
+                        if (!rs.next()) {
+                            rs.close();
+                            stmt = aRoleStmt[1];
+                            sql = "INSERT INTO roles (guildid,roleid,rolename,weight) VALUES (" + guildId + "," + role.getIdLong() + ",'" + role.getName().replaceAll("[\',\"]", "") + "',1)";
                             stmt.setLong(1, guildId);
                             stmt.setLong(2, role.getIdLong());
-                            rs = stmt.executeQuery();
-                            if (!rs.next()) {
+                            stmt.setString(3, role.getName().replaceAll("[\',\"]", ""));
+                            if (stmt.executeUpdate() > 0)
+                                stmt.getConnection().commit();
+                        } else {
+                            if (rs.getInt(1) == 2) {
                                 rs.close();
-                                stmt = aRoleStmt[1];
-                                sql = "INSERT INTO roles (guildid,roleid,rolename,weight) VALUES (" + guildId + "," + role.getIdLong() + ",'" + role.getName().replaceAll("[\',\"]", "") + "',1)";
+                                stmt = aRoleStmt[2];
+                                sql = "UPDATE roles SET weight=1 WHERE guildid=" + guildId + " AND roleid=" + role.getIdLong();
                                 stmt.setLong(1, guildId);
                                 stmt.setLong(2, role.getIdLong());
-                                stmt.setString(3, role.getName().replaceAll("[\',\"]", ""));
                                 if (stmt.executeUpdate() > 0)
                                     stmt.getConnection().commit();
-                            }else{
-                                if(rs.getInt(1)==2)
-                                {
-                                    rs.close();
-                                    stmt = aRoleStmt[2];
-                                    sql = "UPDATE roles SET weight=1 WHERE guildid=" + guildId + " AND roleid=" + role.getIdLong();
-                                    stmt.setLong(1, guildId);
-                                    stmt.setLong(2, role.getIdLong());
-                                    if (stmt.executeUpdate() > 0)
-                                        stmt.getConnection().commit();
-                                }
                             }
-                            rs.close();
                         }
-                    } catch (SQLException ex) {
-                        sqlError(sql, ex);
+                        rs.close();
                     }
+                } catch (SQLException ex) {
+                    sqlError(sql, ex);
+                }
         }
     }
 
@@ -410,53 +410,54 @@ public class DbInterface {
         boolean ret = false;
         PreparedStatement stmt;
         ResultSet rs;
-            try {
-                stmt = delRoleStmt[0];
-                sql = "SELECT * FROM roles WHERE guildid=" + role.getGuild().getIdLong() + " AND roleid=" + role.getIdLong();
-                synchronized (delRoleStmt) {
-                    stmt.setLong(1, role.getGuild().getIdLong());
-                    stmt.setLong(2, role.getIdLong());
-                    rs = stmt.executeQuery();
-                    if (rs.next()) {
-                        rs.close();
-                        stmt = delRoleStmt[1];
-                        sql = "DELETE FROM roles WHERE guildid=" + role.getGuild().getIdLong() + " AND roleid=" + role.getIdLong();
-                        stmt.setLong(1, role.getGuild().getIdLong());
-                        stmt.setLong(2, role.getIdLong());
-                        stmt.executeUpdate();
-                        stmt.getConnection().commit();
-                        ret = true;
-                    }
-                }
-                sql="DELETE FROM MemberRoles WHERE guildId="+role.getGuild().getId()+" AND roleId="+role.getId();
-                stmt = conn.prepareStatement("DELETE FROM MemberRoles WHERE guildId=? AND roleId=?");
+        try {
+            stmt = delRoleStmt[0];
+            sql = "SELECT * FROM roles WHERE guildid=" + role.getGuild().getIdLong() + " AND roleid=" + role.getIdLong();
+            synchronized (delRoleStmt) {
                 stmt.setLong(1, role.getGuild().getIdLong());
                 stmt.setLong(2, role.getIdLong());
-                if(stmt.executeUpdate()>0)
+                rs = stmt.executeQuery();
+                if (rs.next()) {
+                    rs.close();
+                    stmt = delRoleStmt[1];
+                    sql = "DELETE FROM roles WHERE guildid=" + role.getGuild().getIdLong() + " AND roleid=" + role.getIdLong();
+                    stmt.setLong(1, role.getGuild().getIdLong());
+                    stmt.setLong(2, role.getIdLong());
+                    stmt.executeUpdate();
                     stmt.getConnection().commit();
-                stmt.close();
-            } catch (SQLException ex) {
-                sqlError(sql, ex);
+                    ret = true;
+                }
             }
+            sql = "DELETE FROM MemberRoles WHERE guildId=" + role.getGuild().getId() + " AND roleId=" + role.getId();
+            stmt = conn.prepareStatement("DELETE FROM MemberRoles WHERE guildId=? AND roleId=?");
+            stmt.setLong(1, role.getGuild().getIdLong());
+            stmt.setLong(2, role.getIdLong());
+            if (stmt.executeUpdate() > 0)
+                stmt.getConnection().commit();
+            stmt.close();
+        } catch (SQLException ex) {
+            sqlError(sql, ex);
+        }
         return ret;
     }
 
-    public void newGuild(GuildJoinEvent event, String sql) {
+    public void newGuild(Guild guild) {
+        String sql="";
         try {
             Statement stmt = conn.createStatement();
-            sql = "INSERT INTO guilds(guildid, guildname) VALUES (" + event.getGuild().getIdLong() + ",'" + event.getGuild().getName().replaceAll("[\',\"]", "") + "')";
+            sql = "INSERT INTO guilds(guildid, guildname) VALUES (" + guild.getIdLong() + ",'" + guild.getName().replaceAll("[\',\"]", "") + "')";
             if (stmt.executeUpdate(sql) > 0)
                 stmt.getConnection().commit();
             stmt.close();
         } catch (SQLException ex) {
             sqlError(sql, ex);
         }
-        event.getGuild().getMembers().forEach(a -> {
+        guild.getMembers().forEach(a -> {
             String sql2 = "";
             try {
                 int ctn = 0;
                 PreparedStatement stmt1 = conn.prepareStatement("INSERT INTO MemberRoles(guildId, userId, roleId) VALUES (?,?,?)");
-                stmt1.setLong(1, event.getGuild().getIdLong());
+                stmt1.setLong(1, guild.getIdLong());
                 stmt1.setLong(2, a.getUser().getIdLong());
                 for (Role role : a.getRoles()) {
                     stmt1.setLong(3, role.getIdLong());
@@ -464,10 +465,10 @@ public class DbInterface {
                 }
                 stmt1.close();
                 stmt1 = conn.prepareStatement("INSERT INTO MemberNick(guildId, userId, nickname) VALUES (?,?,?)");
-                stmt1.setLong(1, event.getGuild().getIdLong());
+                stmt1.setLong(1, guild.getIdLong());
                 stmt1.setLong(2, a.getUser().getIdLong());
-                stmt1.setString(3,a.getNickname());
-                ctn+=stmt1.executeUpdate();
+                stmt1.setString(3, a.getNickname());
+                ctn += stmt1.executeUpdate();
                 if (ctn > 0)
                     conn.commit();
                 stmt1.close();
@@ -477,14 +478,15 @@ public class DbInterface {
         });
     }
 
-    public void guildLeave(GuildLeaveEvent event, String sql) {
+    public void guildLeave(Guild guild) {
+        String sql="";
         try {
             Statement stmt = conn.createStatement();
-            sql = "DELETE FROM roles WHERE guildid=" + event.getGuild().getIdLong();
+            sql = "DELETE FROM roles WHERE guildid=" + guild.getIdLong();
             stmt.execute(sql);
-            sql = "DELETE FROM guilds WHERE guildid=" + event.getGuild().getIdLong();
+            sql = "DELETE FROM guilds WHERE guildid=" + guild.getIdLong();
             stmt.execute(sql);
-            sql = "DELETE FROM MemberRoles WHERE guildid=" + event.getGuild().getIdLong();
+            sql = "DELETE FROM MemberRoles WHERE guildid=" + guild.getIdLong();
             stmt.execute(sql);
             stmt.getConnection().commit();
             stmt.close();
@@ -494,24 +496,33 @@ public class DbInterface {
     }
 
 
+    public boolean guildIsInDb(Guild guild) {
+        String sql = "";
+        boolean ret = false;
+        try {
+            Statement stmt = conn.createStatement();
+            ResultSet rs;
+            sql = "SELECT * FROM guilds WHERE guildid=" + guild.getIdLong();
+            rs = stmt.executeQuery(sql);
+            ret = rs.next();
+            rs.close();
+            stmt.close();
+        } catch (SQLException ex) {
+            sqlError(sql, ex);
+        }
+        return ret;
+    }
 
     public void updateDatabase(Guild guild, ResourceBundle output) {
         String sql = "";
         try {
             Statement stmt1 = conn.createStatement();
-            ResultSet rs;
-            sql = "SELECT * FROM guilds WHERE guildid=" + guild.getIdLong();
-            rs = stmt1.executeQuery(sql);
-            if (rs.next()) {
-                rs.close();
+            if (guildIsInDb(guild)) {
                 sql = "UPDATE guilds SET guildname='" + guild.getName().replaceAll("[',\"]", "") + "' WHERE guildid=" + guild.getIdLong();
                 if (stmt1.executeUpdate(sql) > 0)
                     conn.commit();
             } else {
-                rs.close();
-                sql = "INSERT INTO guilds(guildid, guildname) VALUES (" + guild.getIdLong() + ",'" + guild.getName().replaceAll("[',\"]", "") + "')";
-                if (stmt1.executeUpdate(sql) > 0)
-                    conn.commit();
+                newGuild(guild);
                 autoRole(guild);
                 try {
                     guild.getDefaultChannel().sendMessage(output.getString("event-join").replace("[version]", Global.version)).queue();
@@ -519,30 +530,6 @@ public class DbInterface {
                     guild.getOwner().getUser().openPrivateChannel().queue((PrivateChannel channel) ->
                             channel.sendMessage(output.getString("event-join").replace("[version]", Global.version)).queue());
                 }
-                guild.getMembers().forEach(a -> {
-                    String sql2 = "";
-                    int ctn = 0;
-                    try {
-                        PreparedStatement stmt2 = conn.prepareStatement("INSERT INTO MemberRoles(guildId, userId, roleId) VALUES (?,?,?)");
-                        stmt2.setLong(1, guild.getIdLong());
-                        stmt2.setLong(2, a.getUser().getIdLong());
-                        for (Role role : a.getRoles()) {
-                            stmt2.setLong(3, role.getIdLong());
-                            ctn += stmt2.executeUpdate();
-                        }
-                        stmt2.close();
-                        stmt2 = conn.prepareStatement("INSERT INTO MemberNick(guildId, userId, nickname) VALUES (?,?,?)");
-                        stmt2.setLong(1, guild.getIdLong());
-                        stmt2.setLong(2, a.getUser().getIdLong());
-                        stmt2.setString(3,a.getNickname());
-                        ctn+=stmt2.executeUpdate();
-                        if (ctn > 0)
-                            conn.commit();
-                        stmt2.close();
-                    } catch (SQLException ex) {
-                        sqlError(sql2, ex);
-                    }
-                });
             }
             stmt1.close();
         } catch (SQLException ex) {
@@ -592,10 +579,10 @@ public class DbInterface {
     }
 
     public void memorizeRole(Guild guild, User user, List<Role> roles) {
-        String partsql="INSERT INTO MemberRoles(guildId, userId, roleId) VALUES ("+guild.getId()+","+user.getId()+",";
-        String sql="";
+        String partsql = "INSERT INTO MemberRoles(guildId, userId, roleId) VALUES (" + guild.getId() + "," + user.getId() + ",";
+        String sql = "";
 
-        int ctn=0;
+        int ctn = 0;
         try {
             PreparedStatement stmt = conn.prepareStatement("INSERT INTO MemberRoles(guildId, userId, roleId) VALUES (?,?,?)");
             stmt.setLong(1, guild.getIdLong());
@@ -614,8 +601,8 @@ public class DbInterface {
     }
 
     public void removeRole(Guild guild, User user, List<Role> roles) {
-        String partsql="UPDATE MemberRoles SET expireDate="+Timestamp.valueOf(LocalDateTime.now().plus(1,ChronoUnit.MINUTES))+" WHERE guildId="+guild.getId()+" AND userId="+user.getId()+" AND roleId=";
-        String sql="";
+        String partsql = "UPDATE MemberRoles SET expireDate=" + Timestamp.valueOf(LocalDateTime.now().plus(1, ChronoUnit.MINUTES)) + " WHERE guildId=" + guild.getId() + " AND userId=" + user.getId() + " AND roleId=";
+        String sql = "";
 
         try {
             PreparedStatement stmt = conn.prepareStatement("UPDATE MemberRoles SET expireDate=? WHERE guildId=? AND userId=? AND roleId=? AND expireDate IS NULL");
@@ -637,15 +624,15 @@ public class DbInterface {
     }
 
     public void updateNick(Guild guild, User user, String nick) {
-        String partsql="UPDATE MemberRoles SET expireDate="+Timestamp.valueOf(LocalDateTime.now().plus(1,ChronoUnit.MINUTES))+" WHERE guildId="+guild.getId()+" AND userId="+user.getId()+" AND roleId=";
-        String sql="";
+        String partsql = "UPDATE MemberRoles SET expireDate=" + Timestamp.valueOf(LocalDateTime.now().plus(1, ChronoUnit.MINUTES)) + " WHERE guildId=" + guild.getId() + " AND userId=" + user.getId() + " AND roleId=";
+        String sql = "";
 
         try {
             PreparedStatement stmt = conn.prepareStatement("SELECT * FROM MemberNick WHERE guildId=? AND userId=? AND expireDate IS NULL");
             stmt.setLong(1, guild.getIdLong());
             stmt.setLong(2, user.getIdLong());
             ResultSet rs = stmt.executeQuery();
-            if(rs.next()) {
+            if (rs.next()) {
                 rs.close();
                 stmt.close();
                 stmt = conn.prepareStatement("UPDATE MemberNick SET nickname=? WHERE guildId=? AND userId=? AND expireDate IS NULL");
@@ -655,7 +642,7 @@ public class DbInterface {
                 if (stmt.executeUpdate() > 0)
                     stmt.getConnection().commit();
                 stmt.close();
-            }else{
+            } else {
                 rs.close();
                 stmt.close();
                 stmt = conn.prepareStatement("INSERT INTO MemberNick(guildId, userId, nickname) VALUES (?,?,?)");
@@ -672,10 +659,10 @@ public class DbInterface {
     }
 
     public int restoreUser(Guild guild, Member member, User user, GuildController gc, List<Role> roles) {
-        boolean restored=false;
-        boolean mute=false;
-        int out=0;
-        String sql="SELECT roleId FROM MemberRoles WHERE guildId="+guild.getId()+" AND userId="+user.getId()+" AND expireDate>"+Date.valueOf(LocalDate.now());
+        boolean restored = false;
+        boolean mute = false;
+        int out = 0;
+        String sql = "SELECT roleId FROM MemberRoles WHERE guildId=" + guild.getId() + " AND userId=" + user.getId() + " AND expireDate>" + Date.valueOf(LocalDate.now());
         try {
             PreparedStatement stmt = conn.prepareStatement("SELECT DISTINCT roleId FROM MemberRoles WHERE guildId=? AND userId=? AND expireDate>?");
             stmt.setString(3, Timestamp.valueOf(LocalDateTime.now()).toString());
@@ -733,30 +720,30 @@ public class DbInterface {
         } catch (SQLException ex) {
             sqlError(sql, ex);
         }
-        if(restored)
-            out=1;
-        if(mute)
-            out=2;
+        if (restored)
+            out = 1;
+        if (mute)
+            out = 2;
         return out;
     }
 
     public void saveUser(Guild guild, User user) {
-        String sql="UPDATE MemberRoles SET expireDate="+Timestamp.valueOf(LocalDateTime.now().plus(1,ChronoUnit.DAYS))+" WHERE guildId="+guild.getId()+" AND userId="+user.getId()+" AND expireDate=null";
+        String sql = "UPDATE MemberRoles SET expireDate=" + Timestamp.valueOf(LocalDateTime.now().plus(1, ChronoUnit.DAYS)) + " WHERE guildId=" + guild.getId() + " AND userId=" + user.getId() + " AND expireDate=null";
         try {
-            int ctn=0;
+            int ctn = 0;
             PreparedStatement stmt = conn.prepareStatement("UPDATE MemberRoles SET expireDate=? WHERE guildId=? AND userId=? AND (expireDate IS NULL OR expireDate>?)");
             stmt.setString(1, Timestamp.valueOf(LocalDateTime.now().plus(1, ChronoUnit.DAYS)).toString());
             stmt.setLong(2, guild.getIdLong());
             stmt.setLong(3, user.getIdLong());
             stmt.setString(4, Timestamp.valueOf(LocalDateTime.now()).toString());
-            ctn+=stmt.executeUpdate();
+            ctn += stmt.executeUpdate();
             stmt.close();
             stmt = conn.prepareStatement("UPDATE MemberNick SET expireDate=? WHERE guildId=? AND userId=? AND (expireDate IS NULL OR expireDate>?)");
             stmt.setString(1, Timestamp.valueOf(LocalDateTime.now().plus(1, ChronoUnit.DAYS)).toString());
             stmt.setLong(2, guild.getIdLong());
             stmt.setLong(3, user.getIdLong());
             stmt.setString(4, Timestamp.valueOf(LocalDateTime.now()).toString());
-            ctn+=stmt.executeUpdate();
+            ctn += stmt.executeUpdate();
             if (ctn > 0)
                 stmt.getConnection().commit();
             stmt.close();
@@ -773,35 +760,35 @@ public class DbInterface {
         String ret;
         PreparedStatement stmt;
         ResultSet rs;
-            try {
-                stmt = rmRoleStmt[0];
-                sql = "(remote) SELECT weight FROM roles WHERE guildid=" + guild.getId() + " AND roleid=" + role.getIdLong();
-                synchronized (rmRoleStmt) {
-                    stmt.setLong(1, guild.getIdLong());
-                    stmt.setLong(2, role.getIdLong());
-                    rs = stmt.executeQuery();
-                    if (rs.next()) {
-                        if(rs.getInt(1)==2) {
-                            rs.close();
-                            stmt = rmRoleStmt[1];
-                            sql = "(remote) DELETE FROM roles WHERE guildid=" + guild.getId() + " AND roleid=" + role.getIdLong();
-                            stmt.setLong(1, guild.getIdLong());
-                            stmt.setLong(2, role.getIdLong());
-                            stmt.executeUpdate();
-                            stmt.getConnection().commit();
-                            ret = output.getString("mod-remove");
-                            Logger.logger.logRemoteRep("removed role " + role.getName(), guild, messageId, remote);
-                            return ret;
-                        }
+        try {
+            stmt = rmRoleStmt[0];
+            sql = "(remote) SELECT weight FROM roles WHERE guildid=" + guild.getId() + " AND roleid=" + role.getIdLong();
+            synchronized (rmRoleStmt) {
+                stmt.setLong(1, guild.getIdLong());
+                stmt.setLong(2, role.getIdLong());
+                rs = stmt.executeQuery();
+                if (rs.next()) {
+                    if (rs.getInt(1) == 2) {
+                        rs.close();
+                        stmt = rmRoleStmt[1];
+                        sql = "(remote) DELETE FROM roles WHERE guildid=" + guild.getId() + " AND roleid=" + role.getIdLong();
+                        stmt.setLong(1, guild.getIdLong());
+                        stmt.setLong(2, role.getIdLong());
+                        stmt.executeUpdate();
+                        stmt.getConnection().commit();
+                        ret = output.getString("mod-remove");
+                        Logger.logger.logRemoteRep("removed role " + role.getName(), guild, messageId, remote);
+                        return ret;
                     }
-                    rs.close();
-                    ret = output.getString("error-mod-missing");
-                    Logger.logger.logRemoteRep("role not mod", guild, messageId, remote);
-
                 }
-            } catch (SQLException ex) {
-                return sqlError(sql, ex);
+                rs.close();
+                ret = output.getString("error-mod-missing");
+                Logger.logger.logRemoteRep("role not mod", guild, messageId, remote);
+
             }
+        } catch (SQLException ex) {
+            return sqlError(sql, ex);
+        }
         return ret;
     }
 
@@ -810,34 +797,34 @@ public class DbInterface {
         String ret;
         PreparedStatement stmt;
         ResultSet rs;
-            try {
-                stmt = rmRoleStmt[0];
-                sql = "(remote) SELECT * FROM roles WHERE guildid=" + guild.getId() + " AND roleid=" + role.getIdLong();
-                synchronized (rmRoleStmt) {
-                    stmt.setLong(1, guild.getIdLong());
-                    stmt.setLong(2, role.getIdLong());
-                    rs = stmt.executeQuery();
-                    if (rs.next()) {
-                        if(rs.getInt(1)==1) {
-                            rs.close();
-                            stmt = rmRoleStmt[1];
-                            sql = "(remote) DELETE FROM roles WHERE guildid=" + guild.getId() + " AND roleid=" + role.getIdLong();
-                            stmt.setLong(1, guild.getIdLong());
-                            stmt.setLong(2, role.getIdLong());
-                            stmt.executeUpdate();
-                            stmt.getConnection().commit();
-                            ret = output.getString("mod-remove");
-                            Logger.logger.logRemoteRep("removed role " + role.getName(), guild, messageId, remote);
-                            return ret;
-                        }
-                    }
+        try {
+            stmt = rmRoleStmt[0];
+            sql = "(remote) SELECT * FROM roles WHERE guildid=" + guild.getId() + " AND roleid=" + role.getIdLong();
+            synchronized (rmRoleStmt) {
+                stmt.setLong(1, guild.getIdLong());
+                stmt.setLong(2, role.getIdLong());
+                rs = stmt.executeQuery();
+                if (rs.next()) {
+                    if (rs.getInt(1) == 1) {
                         rs.close();
-                        ret = output.getString("error-mod-missing");
-                        Logger.logger.logRemoteRep("role not mod", guild, messageId, remote);
+                        stmt = rmRoleStmt[1];
+                        sql = "(remote) DELETE FROM roles WHERE guildid=" + guild.getId() + " AND roleid=" + role.getIdLong();
+                        stmt.setLong(1, guild.getIdLong());
+                        stmt.setLong(2, role.getIdLong());
+                        stmt.executeUpdate();
+                        stmt.getConnection().commit();
+                        ret = output.getString("mod-remove");
+                        Logger.logger.logRemoteRep("removed role " + role.getName(), guild, messageId, remote);
+                        return ret;
+                    }
                 }
-            } catch (SQLException ex) {
-                return sqlError(sql, ex);
+                rs.close();
+                ret = output.getString("error-mod-missing");
+                Logger.logger.logRemoteRep("role not mod", guild, messageId, remote);
             }
+        } catch (SQLException ex) {
+            return sqlError(sql, ex);
+        }
         return ret;
     }
 
@@ -846,38 +833,37 @@ public class DbInterface {
         String ret;
         PreparedStatement stmt;
         ResultSet rs;
-            try {
-                stmt = adRoleStmt[0];
-                sql = "(remote) SELECT * FROM roles WHERE guildid=" + guild.getId() + " AND roleid=" + role.getIdLong();
-                synchronized (adRoleStmt) {
+        try {
+            stmt = adRoleStmt[0];
+            sql = "(remote) SELECT * FROM roles WHERE guildid=" + guild.getId() + " AND roleid=" + role.getIdLong();
+            synchronized (adRoleStmt) {
+                stmt.setLong(1, guild.getIdLong());
+                stmt.setLong(2, role.getIdLong());
+                rs = stmt.executeQuery();
+                if (!rs.next()) {
+                    rs.close();
+                    stmt = adRoleStmt[1];
+                    sql = "(remote) INSERT INTO roles (guildid,roleid,rolename) VALUES (" + guild.getId() + "," + role.getIdLong() + ",'" + role.getName().replaceAll("[\',\"]", "") + "')";
                     stmt.setLong(1, guild.getIdLong());
                     stmt.setLong(2, role.getIdLong());
-                    rs = stmt.executeQuery();
-                    if (!rs.next()) {
-                        rs.close();
-                        stmt = adRoleStmt[1];
-                        sql = "(remote) INSERT INTO roles (guildid,roleid,rolename) VALUES (" + guild.getId() + "," + role.getIdLong() + ",'" + role.getName().replaceAll("[\',\"]", "") + "')";
-                        stmt.setLong(1, guild.getIdLong());
-                        stmt.setLong(2, role.getIdLong());
-                        stmt.setString(3, role.getName().replaceAll("[\',\"]", ""));
-                        if (stmt.executeUpdate() > 0)
-                            stmt.getConnection().commit();
-                        ret = output.getString("mod-add");
-                        Logger.logger.logRemoteRep("added role " + role.getName(), guild, messageId, remote);
-                    } else
-                        if(rs.getInt(1)==1){
-                            rs.close();
-                            ret = output.getString("error-admin-exists");
-                            Logger.logger.logRemoteRep("role is admin", guild, messageId,remote);
-                        }else {
-                            rs.close();
-                            ret = output.getString("error-mod-exists");
-                            Logger.logger.logRemoteRep("role is mod", guild, messageId,remote);
-                        }
+                    stmt.setString(3, role.getName().replaceAll("[\',\"]", ""));
+                    if (stmt.executeUpdate() > 0)
+                        stmt.getConnection().commit();
+                    ret = output.getString("mod-add");
+                    Logger.logger.logRemoteRep("added role " + role.getName(), guild, messageId, remote);
+                } else if (rs.getInt(1) == 1) {
+                    rs.close();
+                    ret = output.getString("error-admin-exists");
+                    Logger.logger.logRemoteRep("role is admin", guild, messageId, remote);
+                } else {
+                    rs.close();
+                    ret = output.getString("error-mod-exists");
+                    Logger.logger.logRemoteRep("role is mod", guild, messageId, remote);
                 }
-            } catch (SQLException ex) {
-                return sqlError(sql, ex);
             }
+        } catch (SQLException ex) {
+            return sqlError(sql, ex);
+        }
         return ret;
     }
 
@@ -886,45 +872,45 @@ public class DbInterface {
         String ret;
         PreparedStatement stmt;
         ResultSet rs;
-            try {
-                stmt = adRoleStmt[0];
-                sql = "(remote) SELECT * FROM roles WHERE guildid=" + guild.getId() + " AND roleid=" + role.getIdLong();
-                synchronized (adRoleStmt) {
+        try {
+            stmt = adRoleStmt[0];
+            sql = "(remote) SELECT * FROM roles WHERE guildid=" + guild.getId() + " AND roleid=" + role.getIdLong();
+            synchronized (adRoleStmt) {
+                stmt.setLong(1, guild.getIdLong());
+                stmt.setLong(2, role.getIdLong());
+                rs = stmt.executeQuery();
+                if (!rs.next()) {
+                    rs.close();
+                    stmt = adRoleStmt[1];
+                    sql = "(remote) INSERT INTO roles (guildid,roleid,rolename) VALUES (" + guild.getId() + "," + role.getIdLong() + ",'" + role.getName().replaceAll("[\',\"]", "") + "')";
                     stmt.setLong(1, guild.getIdLong());
                     stmt.setLong(2, role.getIdLong());
-                    rs = stmt.executeQuery();
-                    if (!rs.next()) {
+                    stmt.setString(3, role.getName().replaceAll("[\',\"]", ""));
+                    if (stmt.executeUpdate() > 0)
+                        stmt.getConnection().commit();
+                    ret = output.getString("mod-add");
+                    Logger.logger.logRemoteRep("added role " + role.getName(), guild, messageId, remote);
+                } else {
+                    if (rs.getInt(1) == 2) {
                         rs.close();
-                        stmt = adRoleStmt[1];
-                        sql = "(remote) INSERT INTO roles (guildid,roleid,rolename) VALUES (" + guild.getId() + "," + role.getIdLong() + ",'" + role.getName().replaceAll("[\',\"]", "") + "')";
-                        stmt.setLong(1, guild.getIdLong());
+                        stmt = adRoleStmt[2];
+                        sql = "UPDATE roles SET weight=1 WHERE guildId=" + remote.getId() + " AND roleId=" + role.getIdLong();
+                        stmt.setLong(1, remote.getIdLong());
                         stmt.setLong(2, role.getIdLong());
-                        stmt.setString(3, role.getName().replaceAll("[\',\"]", ""));
                         if (stmt.executeUpdate() > 0)
                             stmt.getConnection().commit();
-                        ret = output.getString("mod-add");
-                        Logger.logger.logRemoteRep("added role " + role.getName(), guild, messageId, remote);
+                        ret = output.getString("admin-update");
+                        Logger.logger.logRemoteRep("role updated" + role.getName(), guild, messageId, remote);
                     } else {
-                        if(rs.getInt(1)==2){
-                            rs.close();
-                            stmt = adRoleStmt[2];
-                            sql = "UPDATE roles SET weight=1 WHERE guildId=" + remote.getId() + " AND roleId=" + role.getIdLong();
-                            stmt.setLong(1, remote.getIdLong());
-                            stmt.setLong(2, role.getIdLong());
-                            if (stmt.executeUpdate() > 0)
-                                stmt.getConnection().commit();
-                            ret = output.getString("admin-update");
-                            Logger.logger.logRemoteRep("role updated" + role.getName(), guild, messageId,remote);
-                        }else {
-                            rs.close();
-                            ret = output.getString("error-admin-exists");
-                            Logger.logger.logRemoteRep("role is admin", guild, messageId,remote);
-                        }
+                        rs.close();
+                        ret = output.getString("error-admin-exists");
+                        Logger.logger.logRemoteRep("role is admin", guild, messageId, remote);
                     }
                 }
-            } catch (SQLException ex) {
-                return sqlError(sql, ex);
             }
+        } catch (SQLException ex) {
+            return sqlError(sql, ex);
+        }
         return ret;
     }
 
@@ -932,20 +918,20 @@ public class DbInterface {
         String sql = "";
         String ret;
         PreparedStatement stmt;
-            try {
-                stmt = clRoleStmt;
-                sql = "(remote) DELETE FROM roles WHERE guildid=" + guild.getId();
-                synchronized (clRoleStmt) {
-                    stmt.setLong(1, guild.getIdLong());
-                    stmt.setLong(2,2);
-                    stmt.executeUpdate();
-                    stmt.getConnection().commit();
-                }
-                ret = output.getString("mod-clear");
-                Logger.logger.logRemoteRep("cleared mods", guild, messageId, remote);
-            } catch (SQLException ex) {
-                return sqlError(sql, ex);
+        try {
+            stmt = clRoleStmt;
+            sql = "(remote) DELETE FROM roles WHERE guildid=" + guild.getId();
+            synchronized (clRoleStmt) {
+                stmt.setLong(1, guild.getIdLong());
+                stmt.setLong(2, 2);
+                stmt.executeUpdate();
+                stmt.getConnection().commit();
             }
+            ret = output.getString("mod-clear");
+            Logger.logger.logRemoteRep("cleared mods", guild, messageId, remote);
+        } catch (SQLException ex) {
+            return sqlError(sql, ex);
+        }
         return ret;
     }
 
@@ -953,20 +939,20 @@ public class DbInterface {
         String sql = "";
         String ret;
         PreparedStatement stmt;
-            try {
-                stmt = clRoleStmt;
-                sql = "(remote) DELETE FROM roles WHERE guildid=" + guild.getId();
-                synchronized (clRoleStmt) {
-                    stmt.setLong(1, guild.getIdLong());
-                    stmt.setLong(2,1);
-                    stmt.executeUpdate();
-                    stmt.getConnection().commit();
-                }
-                ret = output.getString("admin-clear");
-                Logger.logger.logRemoteRep("cleared admins", guild, messageId, remote);
-            } catch (SQLException ex) {
-                return sqlError(sql, ex);
+        try {
+            stmt = clRoleStmt;
+            sql = "(remote) DELETE FROM roles WHERE guildid=" + guild.getId();
+            synchronized (clRoleStmt) {
+                stmt.setLong(1, guild.getIdLong());
+                stmt.setLong(2, 1);
+                stmt.executeUpdate();
+                stmt.getConnection().commit();
             }
+            ret = output.getString("admin-clear");
+            Logger.logger.logRemoteRep("cleared admins", guild, messageId, remote);
+        } catch (SQLException ex) {
+            return sqlError(sql, ex);
+        }
         return ret;
     }
 
@@ -974,14 +960,14 @@ public class DbInterface {
         String sql = "";
         StringBuilder ret = new StringBuilder(output.getString("mod-list"));
         PreparedStatement stmt;
-            try {
-                stmt = lsRoleStmt;
-                sql = "(remote) SELECT roleid FROM roles WHERE guildid=" + guild.getIdLong();
-                syncModList(remote, ret, stmt,2);
-            } catch (SQLException ex) {
-                return sqlError(sql, ex);
-            }
-        Logger.logger.logRemoteRep("listed mods", guild, messageId,remote);
+        try {
+            stmt = lsRoleStmt;
+            sql = "(remote) SELECT roleid FROM roles WHERE guildid=" + guild.getIdLong();
+            syncModList(remote, ret, stmt, 2);
+        } catch (SQLException ex) {
+            return sqlError(sql, ex);
+        }
+        Logger.logger.logRemoteRep("listed mods", guild, messageId, remote);
         return ret.toString();
     }
 
@@ -989,38 +975,39 @@ public class DbInterface {
         String sql = "";
         StringBuilder ret = new StringBuilder(output.getString("mod-list"));
         PreparedStatement stmt;
-            try {
-                stmt = lsRoleStmt;
-                sql = "(remote) SELECT roleid FROM roles WHERE guildid=" + guild.getIdLong();
-                syncModList(remote, ret, stmt,1);
-            } catch (SQLException ex) {
-                return sqlError(sql, ex);
-            }
-        Logger.logger.logRemoteRep("listed admins", guild, messageId,remote);
+        try {
+            stmt = lsRoleStmt;
+            sql = "(remote) SELECT roleid FROM roles WHERE guildid=" + guild.getIdLong();
+            syncModList(remote, ret, stmt, 1);
+        } catch (SQLException ex) {
+            return sqlError(sql, ex);
+        }
+        Logger.logger.logRemoteRep("listed admins", guild, messageId, remote);
         return ret.toString();
     }
 
 
-    private void syncModList(Guild guild, StringBuilder ret, PreparedStatement stmt,int type) throws SQLException {
+    private void syncModList(Guild guild, StringBuilder ret, PreparedStatement stmt, int type) throws SQLException {
         ResultSet rs;
-            stmt.setLong(1,guild.getIdLong());
-            stmt.setLong(2,type);
-            rs = stmt.executeQuery();
-            while (rs.next()) {
-                Role role = guild.getRoleById(rs.getLong(1));
-                if (role != null) {
-                    ret.append("\n");
-                    ret.append(role.getName());
-                }
+        stmt.setLong(1, guild.getIdLong());
+        stmt.setLong(2, type);
+        rs = stmt.executeQuery();
+        while (rs.next()) {
+            Role role = guild.getRoleById(rs.getLong(1));
+            if (role != null) {
+                ret.append("\n");
+                ret.append(role.getName());
             }
-            rs.close();
+        }
+        rs.close();
     }
 
     private String sqlError(String sql, SQLException ex) {
         try {
             conn.rollback();
-        }catch (SQLException ignored){}
-        Logger.logger.logError("SQLError in : "+ sql);
+        } catch (SQLException ignored) {
+        }
+        Logger.logger.logError("SQLError in : " + sql);
         Logger.logger.logError(ex.getMessage());
         Logger.logger.logError("SQLState: " + ex.getSQLState());
         Logger.logger.logError("VendorError: " + ex.getErrorCode());
@@ -1055,8 +1042,8 @@ public class DbInterface {
         }
     }
 
-    public void close (){
-        for (PreparedStatement stmt : stmts){
+    public void close() {
+        for (PreparedStatement stmt : stmts) {
             try {
                 stmt.close();
             } catch (SQLException ignored) {

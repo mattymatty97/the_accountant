@@ -14,16 +14,23 @@ public class AutoCleaner implements Runnable {
         while (!Thread.interrupted()){
             try {
                 if(last.before(Timestamp.valueOf(LocalDateTime.now().minus(1,ChronoUnit.HOURS)))){
-
+                    MyListener.dbExecutor.pause();
                     String sql = "DELETE FROM MemberRoles WHERE expireDate<"+Timestamp.valueOf(LocalDateTime.now());
                         try {
-                            PreparedStatement stmt = conn.prepareStatement("DELETE FROM MemberRoles WHERE expireDate<?");
+                            PreparedStatement stmt = conn.prepareStatement("SELECT FROM MemberRoles WHERE expireDate<?");
                             stmt.setString(1, Timestamp.valueOf(LocalDateTime.now()).toString());
-                            if(stmt.executeUpdate()>0){
-                                conn.commit();
-                                Logger.logger.logGeneral("Cleaning expired users");
+                            ResultSet rs = stmt.executeQuery();
+                            if(rs.next()) {
+                                rs.close();
+                                stmt.close();
+                                stmt = conn.prepareStatement("DELETE FROM MemberRoles WHERE expireDate<?");
+                                stmt.setString(1, Timestamp.valueOf(LocalDateTime.now()).toString());
+                                if (stmt.executeUpdate() > 0) {
+                                    conn.commit();
+                                    Logger.logger.logGeneral("Cleaning expired users");
+                                }
+                                stmt.close();
                             }
-                            stmt.close();
                         } catch (SQLException ex) {
                             try {
                                 conn.rollback();
@@ -34,6 +41,7 @@ public class AutoCleaner implements Runnable {
                             Logger.logger.logError("SQLState: " + ex.getSQLState());
                             Logger.logger.logError("VendorError: " + ex.getErrorCode());
                         }
+                    MyListener.dbExecutor.resume();
                 }
                 Thread.sleep(3600000);
             }catch (InterruptedException ex){

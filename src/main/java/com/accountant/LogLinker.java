@@ -5,7 +5,7 @@ import net.dv8tion.jda.core.entities.MessageChannel;
 
 import java.util.Map;
 
-public class LogLinker {
+class LogLinker {
     private long guildId;
     private long channelId;
     private MessageChannel channel;
