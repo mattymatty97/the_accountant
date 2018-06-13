@@ -133,7 +133,7 @@ public class Logger implements Runnable{
 
         sb2.append(log);
 
-        Output.println(sb2.toString()+": "+guild.getName());
+        Output.println(ansi().reset().fgBrightYellow().a(sb2.toString()+": "+guild.getName()).reset().toString());
 
         queue.add(new GuildMsg(sb1.toString()+sb2.toString(), guild,false));
         sem.release();
