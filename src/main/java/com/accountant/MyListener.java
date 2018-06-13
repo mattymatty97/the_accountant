@@ -640,14 +640,14 @@ public class MyListener implements EventListener {
                     List<Role> roles = new ArrayList<>();
                     int out = dbExecutor.submit(()->dbInterface.restoreUser(guild, member, user, gc, roles)).get();
                     if (out > 0) {
-                        Logger.logger.logEvent("User " + member.getEffectiveName() + " JOINED - RESTORED", guild);
+                        Logger.logger.logUserEvent("JOINED - RESTORED", guild,user);
                         try {
                             event.getGuild().getDefaultChannel().sendMessage(output.getString("restore").replace("[mention]", member.getAsMention()) + "\n" +
                                     (out > 1 ? output.getString("restored-muted") : "")).queue();
                         } catch (Exception ignore) {
                         }
                     } else
-                        Logger.logger.logEvent("User " + member.getEffectiveName() + " JOINED", guild);
+                        Logger.logger.logUserEvent("JOINED", guild,user);
                 } catch (InterruptedException ignored) {
 
                 }
@@ -676,7 +676,7 @@ public class MyListener implements EventListener {
                 User user = member.getUser();
 
                 dbExecutor.submit(()->dbInterface.saveUser(guild, user)).get();
-                Logger.logger.logEvent("User " + member.getEffectiveName() + " LEAVED", guild);
+                Logger.logger.logUserEvent("LEAVED", guild,user);
 
             } else {
                 event.getJDA().shutdown();

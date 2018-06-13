@@ -13,6 +13,7 @@ import java.text.SimpleDateFormat;
 import java.util.Collection;
 import java.util.Date;
 import com.accountant.datas.*;
+import net.dv8tion.jda.core.entities.User;
 
 import java.util.LinkedList;
 import java.util.Queue;
@@ -104,6 +105,37 @@ public class Logger implements Runnable{
         sb.append(log);
 
         queue.add(new GuildMsg(sb.toString(), guild,false));
+        sem.release();
+
+        LogLinker act = Global.getGbl().getMapGuild().get(guild.getIdLong());
+        if(act!=null)
+        {
+            EmbedBuilder build = act.getMessage();
+            build.setAuthor(guild.getName(),null,guild.getIconUrl());
+            build.setDescription("");
+            build.addField("EVENT",log+": "+guild.getName(),false);
+            act.getChannel().sendMessage(build.build()).queue();
+            build.clearFields();
+        }
+    }
+
+    public void logUserEvent(String log,Guild guild,User user){
+
+        String time = stf.format(new Date());
+        StringBuilder sb1 = new StringBuilder();
+        StringBuilder sb2 = new StringBuilder();
+
+        sb1.append("[").append(time).append("]\t");
+
+        sb2.append("User ").append(user.getName());
+
+        sb2.append(" (").append(user.getId()).append(") ");
+
+        sb2.append(log);
+
+        Output.println(sb2.toString()+": "+guild.getName());
+
+        queue.add(new GuildMsg(sb1.toString()+sb2.toString(), guild,false));
         sem.release();
 
         LogLinker act = Global.getGbl().getMapGuild().get(guild.getIdLong());
