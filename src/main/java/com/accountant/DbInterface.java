@@ -1061,7 +1061,7 @@ public class DbInterface {
                 stmts.add(this.delRoleStmt[1] = conn.prepareStatement("DELETE FROM roles WHERE guildid=? AND roleid=? AND weight=?"));
                 stmts.add(this.isModStmt = conn.prepareStatement("SELECT roleid FROM roles WHERE guildid=? AND weight<=2"));
                 stmts.add(this.isAdminStmt = conn.prepareStatement("SELECT roleid FROM roles WHERE guildid=? AND weight=1"));
-                stmts.add(this.saveUserStmt[0] = conn.prepareStatement("SELECT * FROM MemberRoles,MemberNick WHERE guildId=? AND userId=? AND (expireDate IS NULL OR expireDate>?)"));
+                stmts.add(this.saveUserStmt[0] = conn.prepareStatement("SELECT nickname,roleId FROM MemberRoles R,MemberNick N WHERE (R.guildId=? AND R.userId=? AND (R.expireDate IS NULL OR R.expireDate>?)) OR (N.guildId=? AND N.userId=? AND (N.expireDate IS NULL OR N.expireDate>?))"));
                 stmts.add(this.saveUserStmt[1] = conn.prepareStatement("UPDATE MemberRoles SET expireDate=? WHERE guildId=? AND userId=? AND (expireDate IS NULL OR expireDate>?)"));
                 stmts.add(this.saveUserStmt[2] = conn.prepareStatement("UPDATE MemberNick SET expireDate=? WHERE guildId=? AND userId=? AND (expireDate IS NULL OR expireDate>?)"));
                 stmts.add(this.roleRemoveStmt[0] = conn.prepareStatement("SELECT * FROM MemberRoles WHERE guildId=? AND userId=? AND roleId=? AND expireDate IS NULL"));
