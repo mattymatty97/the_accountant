@@ -578,7 +578,7 @@ public class MyListener implements EventListener {
 
                 List<Role> roles = event.getRoles();
 
-                dbInterface.removeRole(guild, user, roles);
+                dbExecutor.submit(()->dbInterface.removeRole(guild, user, roles)).get();
             } else {
                 event.getJDA().shutdown();
                 Reconnector.reconnect();
