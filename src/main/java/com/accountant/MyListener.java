@@ -646,6 +646,11 @@ public class MyListener implements EventListener {
                                     (out > 1 ? output.getString("restored-muted") : "")).queue();
                         } catch (Exception ignore) {
                         }
+                        Thread.sleep(1500);
+                        try {
+                            gc.modifyMemberRoles(member, roles, Collections.emptyList()).reason("Role restore").queue();
+                        } catch (Exception ignored) {
+                        }
                     } else
                         Logger.logger.logUserEvent("JOINED", guild,user);
                 } catch (InterruptedException ignored) {

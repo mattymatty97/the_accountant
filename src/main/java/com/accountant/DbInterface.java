@@ -702,12 +702,6 @@ public class DbInterface {
                 }
             }
             rs.close();
-
-            try {
-                gc.modifyMemberRoles(member, roles, Collections.emptyList()).reason("Role restore").queue();
-            } catch (Exception ignored) {
-            }
-
             sql = "SELECT nickname FROM MemberNicks WHERE guildId=" + guild.getId() + " AND userId=" + user.getId() + " AND expireDate>" + Date.valueOf(LocalDate.now());
 
             stmt = conn.prepareStatement("SELECT DISTINCT nickname FROM MemberNick WHERE guildId=? AND userId=? AND expireDate>?");
