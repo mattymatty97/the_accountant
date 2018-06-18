@@ -47,18 +47,19 @@ public class Logger implements Runnable{
 
         String time = stf.format(new Date());
         StringBuilder sb = new StringBuilder();
+        StringBuilder sbt = new StringBuilder();
         Member sender = message.getMember();
         logGeneral("event in guild "+message.getGuild().getName()+" ["+message.getGuild().getId()+"]");
 
-        sb.append("[").append(time).append("]\t");
+        sbt.append("[").append(time).append("]\t");
 
         sb.append("messageId [").append(message.getId()).append("]\t| ");
         sb.append("User \"").append(sender.getEffectiveName()).append("\"(").append(sender.getUser().getId()).append(")");
         sb.append(" triggered ").append(log);
 
-        Output.println(ansi().fgBrightYellow().a(sb.toString()).reset().toString());
+        Output.println(sbt.toString() + ansi().fgBrightYellow().a(sb.toString()).reset().toString());
 
-        queue.add(new GuildMsg(sb.toString(), message.getGuild(),false));
+        queue.add(new GuildMsg(sbt.toString() + sb.toString(), message.getGuild(),false));
         sem.release();
 
         LogLinker act = Global.getGbl().getMapGuild().get(message.getGuild().getIdLong());
@@ -73,14 +74,15 @@ public class Logger implements Runnable{
 
         String time = stf.format(new Date());
         StringBuilder sb = new StringBuilder();
+        StringBuilder sbt = new StringBuilder();
 
-        sb.append("[").append(time).append("]\t");
+        sbt.append("[").append(time).append("]\t");
 
         sb.append("messageId [").append(messageId).append("]\t| ").append(log);
 
-        Output.println(ansi().reset() + sb.toString());
+        Output.println(sbt.toString() + ansi().reset() + sb.toString());
 
-        queue.add(new GuildMsg(sb.toString(), guild,true));
+        queue.add(new GuildMsg(sbt.toString() + sb.toString(), guild,true));
         sem.release();
 
         LogLinker act = Global.getGbl().getMapGuild().get(guild.getIdLong());
@@ -130,20 +132,20 @@ public class Logger implements Runnable{
             debug = "";
         }
         String time = stf.format(new Date());
-        StringBuilder sb1 = new StringBuilder();
-        StringBuilder sb2 = new StringBuilder();
+        StringBuilder sb = new StringBuilder();
+        StringBuilder sbt = new StringBuilder();
 
-        sb1.append("[").append(time).append("]\t");
+        sbt.append("[").append(time).append("]\t");
 
-        sb2.append("User ").append(user.getName());
+        sb.append("User ").append(user.getName());
 
-        sb2.append(" (").append(user.getId()).append(") ");
+        sb.append(" (").append(user.getId()).append(") ");
 
-        sb2.append(log);
+        sb.append(log);
 
-        Output.println(debug + ansi().reset().fgBrightYellow().a(sb2.toString()+": "+guild.getName()).reset().toString());
+        Output.println(debug + sbt + ansi().reset().fgBrightYellow().a(sb.toString()+": "+guild.getName()).reset().toString());
 
-        queue.add(new GuildMsg(sb1.toString()+sb2.toString(), guild,false));
+        queue.add(new GuildMsg(sbt + sb.toString(), guild,false));
         sem.release();
 
         LogLinker act = Global.getGbl().getMapGuild().get(guild.getIdLong());
@@ -170,15 +172,14 @@ public class Logger implements Runnable{
         }
 
         String time = stf.format(new Date());
-        StringBuilder sb = new StringBuilder();
-        sb.append("[").append(time).append("]\t");
-        sb.append(log);
+        StringBuilder sbt = new StringBuilder();
+        sbt.append("[").append(time).append("]\t");
 
 
-        Output.println(debug + ansi().fgRed().a(sb.toString()).reset());
+        Output.println(debug + sbt.toString() + ansi().fgRed().a(log).reset());
 
 
-        queue.add(new GeneralMsg(sb.toString()));
+        queue.add(new GeneralMsg(sbt.toString()+log));
         sem.release();
     }
 
@@ -195,15 +196,13 @@ public class Logger implements Runnable{
         }
 
         String time = stf.format(new Date());
-        StringBuilder sb = new StringBuilder();
-        sb.append("[").append(time).append("]\t");
-        sb.append(log);
+        StringBuilder sbt = new StringBuilder();
+        sbt.append("[").append(time).append("]\t");
+
+        Output.println(debug + sbt.toString() + ansi().fgYellow().a(log).reset());
 
 
-        Output.println(debug + ansi().fgYellow().a(sb.toString()).reset());
-
-
-        queue.add(new GeneralMsg(sb.toString()));
+        queue.add(new GeneralMsg(sbt.toString() + log));
         sem.release();
     }
 
@@ -211,20 +210,19 @@ public class Logger implements Runnable{
 
         String time = stf.format(new Date());
         StringBuilder sb = new StringBuilder();
+        StringBuilder sbt = new StringBuilder();
         Member sender = message.getMember();
         logGeneral("event in guild "+message.getGuild().getName()+" ["+message.getGuild().getId()+"]");
-                sb.append("[").append(time).append("]\t");
+        sbt.append("[").append(time).append("]\t");
 
-                sb.append("messageId [").append(message.getId()).append("]\t| ");
-                sb.append("User \"").append(sender.getEffectiveName()).append("\"(").append(sender.getUser().getId()).append(")");
-                sb.append(" triggered ").append(log);
-                sb.append("[").append(guild.getId()).append("]");
+        sb.append("messageId [").append(message.getId()).append("]\t| ");
+        sb.append("User \"").append(sender.getEffectiveName()).append("\"(").append(sender.getUser().getId()).append(")");
+        sb.append(" triggered ").append(log);
+        sb.append("[").append(guild.getId()).append("]");
 
-        synchronized (System.out) {
-            System.out.println(ansi().fgBrightYellow().a(sb.toString()).reset());
-        }
+        Output.println(sbt.toString() + ansi().fgBrightYellow().a(sb.toString()).reset());
 
-        queue.add(new RemoteMsg(sb.toString(), message.getGuild(), guild, false));
+        queue.add(new RemoteMsg(sbt.toString() + sb.toString(), message.getGuild(), guild, false));
 
         sem.release();
     }
@@ -233,15 +231,16 @@ public class Logger implements Runnable{
 
         String time = stf.format(new Date());
         StringBuilder sb = new StringBuilder();
+        StringBuilder sbt = new StringBuilder();
 
-        sb.append("[").append(time).append("]\t");
+        sbt.append("[").append(time).append("]\t");
         sb.append("messageId [").append(messageId).append("]\t| ").append(log);
 
 
-        Output.println(sb.toString());
+        Output.println(sbt.toString() + sb.toString());
 
 
-        queue.add(new RemoteMsg(sb.toString(), guild, remote, true));
+        queue.add(new RemoteMsg(sbt.toString() + sb.toString(), guild, remote, true));
         sem.release();
     }
 

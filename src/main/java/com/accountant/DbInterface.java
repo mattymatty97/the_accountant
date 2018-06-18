@@ -81,17 +81,18 @@ public class DbInterface {
         }
     }
 
-    public void forgiveUser(ResourceBundle output, Guild guild, MessageChannel channel, User user, String sql) {
+    public String forgiveUser(ResourceBundle output, Guild guild, long Id, String sql) {
         try {
             PreparedStatement stmt = conn.prepareStatement("DELETE FROM MemberRoles WHERE guildid=? AND userId=?");
             stmt.setLong(1, guild.getIdLong());
-            stmt.setLong(2, user.getIdLong());
+            stmt.setLong(2, Id);
             stmt.executeUpdate();
             conn.commit();
             stmt.close();
-            channel.sendMessage(output.getString("forgive-done")).queue();
+            return output.getString("forgive-done");
         } catch (SQLException ex) {
             sqlError(sql, ex);
+            return "";
         }
     }
 

@@ -1,5 +1,6 @@
 package com.accountant;
 
+import jdk.nashorn.internal.runtime.SharedPropertyMap;
 import net.dv8tion.jda.core.entities.MessageChannel;
 
 import java.io.FileWriter;
@@ -7,9 +8,9 @@ import java.util.HashMap;
 import java.util.Map;
 
 public class Global {
-    public static final String version = "v2.6 - ac prj";
-    public static final String build = "3";
-
+    public static final String version = "v2.7 - ac prj";
+    public static final String build = "1";
+    public SharedPropertyMap
 
     private static Global gbl = new Global();
     public static Global getGbl(){

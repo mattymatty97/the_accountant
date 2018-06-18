@@ -424,20 +424,22 @@ public class MyListener implements EventListener {
                                 break;
     //------ADMIN---------------FORGIVE---------------------------------------
                             case "forgive":
-                                channel.sendTyping().queue();
                                 //if member is allowed
                                 if (member.isOwner() || admin) {
                                     //if there are other arguments
+                                    channel.sendTyping().queue();
                                     if (args.length > 1) {
                                         //get mentioned roles
-                                        List<User> mentions = message.getMentionedUsers();
-                                        //test on mentions
-                                        if(mentions.size()>0) {
+                                        try {
+                                            long id = Long.parseLong(args[1]);
                                             String sql = "";
-                                            if(guild.getMemberById(mentions.get(0).getIdLong())==null) {
-                                                dbExecutor.submit(()->dbInterface.forgiveUser(output, guild, channel, mentions.get(0), sql)).get();
+                                            if(guild.getMemberById(id)==null) {
+                                                String ret = dbExecutor.submit(()->dbInterface.forgiveUser(output, guild, id, sql)).get();
+                                                channel.sendMessage(ret).queue();
                                             }else
                                                 channel.sendMessage(output.getString("error-forgive-mutual")).queue();
+                                        }catch (NumberFormatException ex){
+                                            channel.sendMessage(output.getString("error-non-id")).queue();
                                         }
                                     }
                                     break;
@@ -471,7 +473,7 @@ public class MyListener implements EventListener {
                                                                     Logger.logger.logReponse("guild non mutual", guild, messageId);
                                                                 }
                                                             } else {
-                                                                channel.sendMessage(output.getString("error-console-non_id")).queue();
+                                                                channel.sendMessage(output.getString("error-non_id")).queue();
                                                                 Logger.logger.logReponse("not an id", guild, messageId);
                                                             }
                                                         } else {
