@@ -694,8 +694,7 @@ public class DbInterface {
             while (rs.next()) {
                 Role role = guild.getRoleById(rs.getLong("roleId"));
                 if (role != null && (role.getPosition() < guild.getSelfMember().getRoles().stream().mapToInt(Role::getPosition).max().orElse(0))) {
-                    if (!member.getRoles().contains(role))
-                        roles.add(role);
+                    roles.add(role);
                     restored = true;
                     if (role.getName().matches(".*[Mm][Uu][Tt][Ee][Dd].*"))
                         mute = true;

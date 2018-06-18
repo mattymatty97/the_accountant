@@ -120,7 +120,15 @@ public class Logger implements Runnable{
     }
 
     public void logUserEvent(String log,Guild guild,User user){
+        String debug = System.getenv().get("DEBUG");
+        if (debug == null || debug.isEmpty())
+            debug = "";
+        else
+            debug = "[" + Thread.currentThread().getName() + "]\u2BB7\r\n";
 
+        if (!started) {
+            debug = "";
+        }
         String time = stf.format(new Date());
         StringBuilder sb1 = new StringBuilder();
         StringBuilder sb2 = new StringBuilder();
@@ -133,7 +141,7 @@ public class Logger implements Runnable{
 
         sb2.append(log);
 
-        Output.println(ansi().reset().fgBrightYellow().a(sb2.toString()+": "+guild.getName()).reset().toString());
+        Output.println(debug + ansi().reset().fgBrightYellow().a(sb2.toString()+": "+guild.getName()).reset().toString());
 
         queue.add(new GuildMsg(sb1.toString()+sb2.toString(), guild,false));
         sem.release();
