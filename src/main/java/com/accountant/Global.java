@@ -10,7 +10,6 @@ import java.util.Map;
 public class Global {
     public static final String version = "v2.7 - ac prj";
     public static final String build = "1";
-    public SharedPropertyMap
 
     private static Global gbl = new Global();
     public static Global getGbl(){
