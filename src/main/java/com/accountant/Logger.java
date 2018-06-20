@@ -1,9 +1,14 @@
 package com.accountant;
 
+import com.accountant.datas.Datas;
+import com.accountant.datas.GeneralMsg;
+import com.accountant.datas.GuildMsg;
+import com.accountant.datas.RemoteMsg;
 import net.dv8tion.jda.core.EmbedBuilder;
 import net.dv8tion.jda.core.entities.Guild;
 import net.dv8tion.jda.core.entities.Member;
 import net.dv8tion.jda.core.entities.Message;
+import net.dv8tion.jda.core.entities.User;
 
 import java.io.File;
 import java.io.FileWriter;
@@ -12,15 +17,13 @@ import java.text.DateFormat;
 import java.text.SimpleDateFormat;
 import java.util.Collection;
 import java.util.Date;
-import com.accountant.datas.*;
-import net.dv8tion.jda.core.entities.User;
-
 import java.util.LinkedList;
 import java.util.Queue;
 import java.util.concurrent.Semaphore;
 
 import static org.fusesource.jansi.Ansi.ansi;
 
+@SuppressWarnings({"WeakerAccess", "Duplicates"})
 public class Logger implements Runnable{
     private static final DateFormat sdf = new SimpleDateFormat("yyyy/MM/dd");
     private static final DateFormat stf = new SimpleDateFormat("HH:mm:ss");
@@ -86,8 +89,7 @@ public class Logger implements Runnable{
         sem.release();
 
         LogLinker act = Global.getGbl().getMapGuild().get(guild.getIdLong());
-        if(act!=null)
-        {
+        if(act!=null) {
             EmbedBuilder build = act.getMessage();
             build.addField("Reponse",log,false);
             act.getChannel().sendMessage(build.build()).queue();
@@ -110,8 +112,7 @@ public class Logger implements Runnable{
         sem.release();
 
         LogLinker act = Global.getGbl().getMapGuild().get(guild.getIdLong());
-        if(act!=null)
-        {
+        if(act!=null) {
             EmbedBuilder build = act.getMessage();
             build.setAuthor(guild.getName(),null,guild.getIconUrl());
             build.setDescription("");
@@ -149,8 +150,7 @@ public class Logger implements Runnable{
         sem.release();
 
         LogLinker act = Global.getGbl().getMapGuild().get(guild.getIdLong());
-        if(act!=null)
-        {
+        if(act!=null) {
             EmbedBuilder build = act.getMessage();
             build.setAuthor(guild.getName(),null,guild.getIconUrl());
             build.setDescription("");
@@ -245,12 +245,10 @@ public class Logger implements Runnable{
     }
 
 
-    public void logInit()
-    {
+    public void logInit() {
         String date = sdf.format(new Date());
         File file = new File("./logs/"+date+"/BOT.log");
-        if(file.getParentFile().exists() || file.getParentFile().mkdirs())
-        {
+        if(file.getParentFile().exists() || file.getParentFile().mkdirs()) {
             try {
                 FileWriter fw;
                 fw = new FileWriter(file, true);
@@ -259,15 +257,13 @@ public class Logger implements Runnable{
                 fw.flush();
                 Global.getGbl().setFwGlobal(fw);
                 lastDate=date;
-            }catch (IOException ex)
-            {
+            }catch (IOException ex) {
                 ex.printStackTrace();
             }
         }
     }
 
-    private FileWriter openFile(Guild guild)
-    {
+    private FileWriter openFile(Guild guild) {
         String date = sdf.format(new Date());
         File file = new File("./logs/"+date+"/"+guild.getIdLong()+".log");
         if (!date.equals(lastDate)) {
@@ -281,8 +277,7 @@ public class Logger implements Runnable{
             return fw;
         }
 
-        if(file.getParentFile().exists() || file.getParentFile().mkdirs())
-        {
+        if(file.getParentFile().exists() || file.getParentFile().mkdirs()) {
             try {
                 boolean existing=false;
                 if(file.exists()){
@@ -294,16 +289,14 @@ public class Logger implements Runnable{
                 }
                 Global.getGbl().getFwServers().put(guild.getIdLong(),fw);
                 return fw;
-            }catch (IOException ex)
-            {
+            }catch (IOException ex) {
                 ex.printStackTrace();
             }
         }
         return null;
     }
 
-    private FileWriter openFile()
-    {
+    private FileWriter openFile() {
         String date = sdf.format(new Date());
         File file = new File("./logs/"+date+"/BOT.log");
         if (!date.equals(lastDate)) {
@@ -314,8 +307,7 @@ public class Logger implements Runnable{
         FileWriter fw = Global.getGbl().getFwGlobal();
         if(fw!=null)
             return fw;
-        if(file.getParentFile().exists() || file.getParentFile().mkdirs())
-        {
+        if(file.getParentFile().exists() || file.getParentFile().mkdirs()) {
             try {
                 fw = new FileWriter(file, true);
                 Global.getGbl().setFwGlobal(fw);
@@ -356,9 +348,9 @@ public class Logger implements Runnable{
                 }
             } catch (InterruptedException ignored) {
             } finally {
-                    System.err.println(ansi().fgYellow().a("Flushing last queued messages").reset());
-                    print(false);
-                    System.err.println(ansi().fgRed().a("Exiting logger daemon").reset());
+                System.err.println(ansi().fgYellow().a("Flushing last queued messages").reset());
+                print(false);
+                System.err.println(ansi().fgRed().a("Exiting logger daemon").reset());
             }
         }
     }

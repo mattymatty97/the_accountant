@@ -1,22 +1,18 @@
 package com.accountant;
 
+import net.dv8tion.jda.core.Permission;
+import net.dv8tion.jda.core.entities.*;
+import net.dv8tion.jda.core.events.message.MessageReceivedEvent;
+import net.dv8tion.jda.core.exceptions.InsufficientPermissionException;
+import net.dv8tion.jda.core.managers.GuildController;
+
 import java.sql.*;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
-import java.util.Collections;
 import java.util.List;
 import java.util.ResourceBundle;
-
-import net.dv8tion.jda.core.Permission;
-import net.dv8tion.jda.core.entities.*;
-import net.dv8tion.jda.core.events.guild.GuildJoinEvent;
-import net.dv8tion.jda.core.events.guild.GuildLeaveEvent;
-import net.dv8tion.jda.core.events.guild.member.GuildMemberNickChangeEvent;
-import net.dv8tion.jda.core.events.message.MessageReceivedEvent;
-import net.dv8tion.jda.core.exceptions.InsufficientPermissionException;
-import net.dv8tion.jda.core.managers.GuildController;
 
 @SuppressWarnings("WeakerAccess")
 public class DbInterface {
@@ -32,6 +28,7 @@ public class DbInterface {
     private PreparedStatement[] roleRemoveStmt = new PreparedStatement[2];
     private PreparedStatement roleMemStmt;
     private PreparedStatement[] nickStmt = new PreparedStatement[3];
+    private PreparedStatement[] uNameStmt = new PreparedStatement[2];
     private PreparedStatement restoreStmt;
 
     private List<PreparedStatement> stmts = new ArrayList<>(29);
@@ -681,6 +678,28 @@ public class DbInterface {
         }
     }
 
+    public void updateUname(User user, String uname) {
+        String sql = "SELECT * FROM MemberNick WHERE userId=" + user.getId() + " AND nickname=" + uname + " AND expireDate IS NULL";
+        try {
+            PreparedStatement stmt = uNameStmt[0];
+            stmt.setLong(1, user.getIdLong());
+            stmt.setString(2, uname);
+            ResultSet rs = stmt.executeQuery();
+            if (rs.next()) {
+                rs.close();
+                sql = "UPDATE MemberNick SET nickname=" + user.getName() + " WHERE userId=" + user.getId() + " AND nickname=" + uname + " AND expireDate IS NULL";
+                stmt = uNameStmt[1];
+                stmt.setString(1, user.getName());
+                stmt.setLong(2, user.getIdLong());
+                stmt.setString(3, uname);
+                if (stmt.executeUpdate() > 0)
+                    stmt.getConnection().commit();
+            }
+        } catch (SQLException ex) {
+            sqlError(sql, ex);
+        }
+    }
+
     public int restoreUser(Guild guild, Member member, User user, GuildController gc, List<Role> roles) {
         boolean restored = false;
         boolean mute = false;
@@ -729,9 +748,17 @@ public class DbInterface {
             stmt.setLong(1, guild.getIdLong());
             stmt.setLong(2, user.getIdLong());
             ctn += stmt.executeUpdate();
-            if (ctn > 0)
-                conn.commit();
             stmt.close();
+
+            if (ctn == 0) {
+                stmt = conn.prepareStatement("INSERT INTO MemberNick(guildId, userId, nickname) VALUES (?,?,?)");
+                stmt.setLong(1, guild.getIdLong());
+                stmt.setLong(2, user.getIdLong());
+                stmt.setString(3, user.getName());
+                stmt.executeUpdate();
+                stmt.close();
+            }
+            conn.commit();
         } catch (SQLException ex) {
             sqlError(sql, ex);
         }
@@ -1065,6 +1092,8 @@ public class DbInterface {
                 stmts.add(this.nickStmt[1] = conn.prepareStatement("UPDATE MemberNick SET nickname=? WHERE guildId=? AND userId=? AND expireDate IS NULL"));
                 stmts.add(this.nickStmt[2] = conn.prepareStatement("INSERT INTO MemberNick(guildId, userId, nickname) VALUES (?,?,?)"));
                 stmts.add(this.restoreStmt = conn.prepareStatement("SELECT DISTINCT roleId FROM MemberRoles WHERE guildId=? AND userId=? AND expireDate>?"));
+                stmts.add(this.uNameStmt[0] = conn.prepareStatement("SELECT * FROM MemberNick WHERE userId=? AND nickname=? AND expireDate IS NULL"));
+                stmts.add(this.uNameStmt[1] = conn.prepareStatement("UPDATE MemberNick SET nickname=? WHERE userId=? AND nickname=? AND expireDate IS NULL"));
                 this.conn = conn;
             } catch (SQLException ex) {
                 Logger.logger.logError("SQLError in SQL preparation");

@@ -4,13 +4,14 @@ import net.dv8tion.jda.core.EmbedBuilder;
 import net.dv8tion.jda.core.JDA;
 import net.dv8tion.jda.core.Permission;
 import net.dv8tion.jda.core.entities.*;
-import net.dv8tion.jda.core.events.guild.member.*;
 import net.dv8tion.jda.core.events.Event;
 import net.dv8tion.jda.core.events.ReadyEvent;
 import net.dv8tion.jda.core.events.guild.GuildJoinEvent;
 import net.dv8tion.jda.core.events.guild.GuildLeaveEvent;
+import net.dv8tion.jda.core.events.guild.member.*;
 import net.dv8tion.jda.core.events.message.MessageReceivedEvent;
 import net.dv8tion.jda.core.events.role.RoleDeleteEvent;
+import net.dv8tion.jda.core.events.user.UserNameUpdateEvent;
 import net.dv8tion.jda.core.exceptions.InsufficientPermissionException;
 import net.dv8tion.jda.core.hooks.EventListener;
 import net.dv8tion.jda.core.managers.GuildController;
@@ -23,13 +24,15 @@ import org.json.JSONObject;
 
 import java.awt.*;
 import java.io.IOException;
-import java.sql.*;
+import java.sql.Connection;
+import java.sql.SQLException;
+import java.sql.Statement;
 import java.util.*;
 import java.util.List;
+import java.util.Queue;
 import java.util.concurrent.*;
 import java.util.concurrent.locks.Condition;
 import java.util.concurrent.locks.ReentrantLock;
-
 
 import static org.fusesource.jansi.Ansi.ansi;
 
@@ -41,7 +44,7 @@ public class MyListener implements EventListener {
     private static ExecutorService eventThreads = Executors.newCachedThreadPool(new MyThreadFactory());
 
     private static class MyThreadFactory implements ThreadFactory{
-        private final Queue<Integer> tQueue = new PriorityQueue<Integer>((a, b) -> b - a) {
+        private final Queue<Integer> tQueue = new PriorityQueue<Integer>(Comparator.reverseOrder()) {
             @Override
             public synchronized boolean add(Integer e) {
                 return super.add(e);
@@ -130,6 +133,8 @@ public class MyListener implements EventListener {
             eventThreads.execute(() -> onMemberLeave((GuildMemberLeaveEvent) event));
         else if (event instanceof GuildMemberNickChangeEvent)
             eventThreads.execute(() -> onMemberNick((GuildMemberNickChangeEvent) event));
+        else if (event instanceof UserNameUpdateEvent)
+            eventThreads.execute(() -> onMemberUsername((UserNameUpdateEvent) event));
 
     }
 
@@ -618,6 +623,25 @@ public class MyListener implements EventListener {
         }
     }
 
+    private void onMemberUsername(UserNameUpdateEvent event) {
+        ResourceBundle output = ResourceBundle.getBundle("messages");
+        try {
+            if (checkConnection()) {
+                User user = event.getUser();
+
+                String oldUname = event.getOldName();
+
+                dbExecutor.submit(() -> dbInterface.updateUname(user, oldUname)).get();
+            } else {
+                event.getJDA().shutdown();
+                Reconnector.reconnect();
+            }
+        } catch (InterruptedException ignored) {
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+    }
+
 
 
     private void onMemberJoin(GuildMemberJoinEvent event){
@@ -644,7 +668,8 @@ public class MyListener implements EventListener {
                     if (out > 0) {
                         Logger.logger.logUserEvent("JOINED - RESTORED", guild,user);
                         try {
-                            event.getGuild().getDefaultChannel().sendMessage(output.getString("restore").replace("[mention]", member.getAsMention()) + "\n" +
+                            String msg = output.getString("restore").replace("[mention]", member.getAsMention()).replace("[uname]", member.getEffectiveName());
+                            event.getGuild().getDefaultChannel().sendMessage(msg + "\n" +
                                     (out > 1 ? output.getString("restored-muted") : "")).queue();
                         } catch (Exception ignore) {
                         }

@@ -1,6 +1,7 @@
 package com.accountant.datas;
 
 import net.dv8tion.jda.core.entities.Guild;
+import net.dv8tion.jda.core.utils.Checks;
 
 public class GuildMsg implements Datas{
         final private String text;
@@ -10,6 +11,7 @@ public class GuildMsg implements Datas{
     public GuildMsg(String text, Guild guild, boolean reponse) {
         this.text = text;
         this.reponse = reponse;
+        Checks.notNull(guild, "guild");
         this.guild = guild;
     }
 
