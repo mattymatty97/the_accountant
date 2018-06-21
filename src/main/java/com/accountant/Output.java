@@ -1,9 +1,20 @@
 package com.accountant;
 
+import net.dv8tion.jda.core.entities.Guild;
+
 import static org.fusesource.jansi.Ansi.ansi;
 
 public class Output {
     private static int act=0;
+
+    public static void println(Object obj) {
+        println(obj.toString());
+    }
+
+    public static void println(Guild guild) {
+        println(guild.toString() + " Members:" + guild.getMembers().size());
+    }
+
     public static void println(String st){
         if (Logger.started) {
             synchronized (System.out){

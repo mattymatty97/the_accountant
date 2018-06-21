@@ -42,6 +42,7 @@ public class MyListener implements EventListener {
     private Connection conn;
     private DbInterface dbInterface;
     private static ExecutorService eventThreads = Executors.newCachedThreadPool(new MyThreadFactory());
+    private Set<User> restoring = new HashSet<>();
 
     private static class MyThreadFactory implements ThreadFactory{
         private final Queue<Integer> tQueue = new PriorityQueue<Integer>(Comparator.reverseOrder()) {
@@ -125,6 +126,7 @@ public class MyListener implements EventListener {
 
         else if (event instanceof GuildMemberJoinEvent) {
             try {
+                restoring.add(((GuildMemberJoinEvent) event).getUser());
                 Thread.sleep(30);
                 eventThreads.execute(() -> onMemberJoin((GuildMemberJoinEvent) event));
             }catch (InterruptedException ignored){}
@@ -521,7 +523,9 @@ public class MyListener implements EventListener {
                                     }
                                 else if(member.getUser().getIdLong() == Long.parseLong(System.getenv("OWNER_ID"))){
                                     if(command.equals("reload")){
+                                        channel.sendMessage(output.getString("reload-started")).queue();
                                         dbExecutor.submit(()->dbInterface.rePopolateDb(event)).get();
+                                        channel.sendMessage(output.getString("reload-ended")).queue();
                                     }
                                 }
 
@@ -610,9 +614,10 @@ public class MyListener implements EventListener {
 
                 User user = member.getUser();
 
-                String nick = event.getNewNick();
-
-                dbExecutor.submit(()->dbInterface.updateNick(guild, user, nick)).get();
+                String nick = member.getEffectiveName();
+                if (!restoring.contains(user)) {
+                    dbExecutor.submit(() -> dbInterface.updateNick(guild, user, nick)).get();
+                }
             } else {
                 event.getJDA().shutdown();
                 Reconnector.reconnect();
@@ -624,14 +629,14 @@ public class MyListener implements EventListener {
     }
 
     private void onMemberUsername(UserNameUpdateEvent event) {
-        ResourceBundle output = ResourceBundle.getBundle("messages");
         try {
             if (checkConnection()) {
                 User user = event.getUser();
 
                 String oldUname = event.getOldName();
-
-                dbExecutor.submit(() -> dbInterface.updateUname(user, oldUname)).get();
+                if (!restoring.contains(user)) {
+                    dbExecutor.submit(() -> dbInterface.updateUname(user, oldUname)).get();
+                }
             } else {
                 event.getJDA().shutdown();
                 Reconnector.reconnect();
@@ -658,8 +663,6 @@ public class MyListener implements EventListener {
                 User user = member.getUser();
 
                 GuildController gc = new GuildController(guild);
-
-
                 //wait till other bots act
                 try {
                     //act
@@ -680,6 +683,8 @@ public class MyListener implements EventListener {
                         }
                     } else
                         Logger.logger.logUserEvent("JOINED", guild,user);
+
+                    restoring.remove(user);
                 } catch (InterruptedException ignored) {
 
                 }

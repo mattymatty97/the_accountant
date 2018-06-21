@@ -560,30 +560,43 @@ public class DbInterface {
         String sql = "";
         try {
             sql = "DELETE FROM MemberRoles WHERE expireDate IS NULL";
-            PreparedStatement stmt1 = conn.prepareStatement("DELETE FROM MemberRoles WHERE expireDate IS NULL");
-            stmt1.executeUpdate();
+            PreparedStatement stmt = conn.prepareStatement("DELETE FROM MemberRoles WHERE expireDate IS NULL");
+            stmt.executeUpdate();
             conn.commit();
-            stmt1.close();
+            stmt.close();
+            stmt = conn.prepareStatement("DELETE FROM MemberNick WHERE expireDate IS NULL");
+            stmt.executeUpdate();
+            conn.commit();
+            stmt.close();
             final String sqli = sql = "INSERT INTO MemberRoles(guildId, userId, roleId) VALUES (";
-            final PreparedStatement stmt = conn.prepareStatement("INSERT INTO MemberRoles(guildId, userId, roleId) VALUES (?,?,?)");
-            event.getJDA().getGuilds().stream().flatMap(a -> a.getMembers().stream()).forEach(m -> {
+            final PreparedStatement stmt1 = conn.prepareStatement("INSERT INTO MemberRoles(guildId, userId, roleId) VALUES (?,?,?)");
+            final PreparedStatement stmt2 = conn.prepareStatement("INSERT INTO MemberNick(guildId, userId, nickname) VALUES (?,?,?)");
+            event.getJDA().getGuilds().stream().peek(Output::println).flatMap(a -> a.getMembers().stream()).forEach(m -> {
                 String sql1 = "";
                 int ctn = 0;
                 try {
-                    stmt.setLong(1, m.getGuild().getIdLong());
-                    stmt.setLong(2, m.getUser().getIdLong());
+                    stmt1.setLong(1, m.getGuild().getIdLong());
+                    stmt1.setLong(2, m.getUser().getIdLong());
+                    stmt2.setLong(1, m.getGuild().getIdLong());
+                    stmt2.setLong(2, m.getUser().getIdLong());
                     for (Role role : m.getRoles()) {
-                        sql1 = sqli + m.getGuild().getId() + "," + m.getUser().getId() + "," + role.getId() + ")";
-                        stmt.setLong(3, role.getIdLong());
-                        ctn += stmt.executeUpdate();
+                        if (!role.isPublicRole() && role.isManaged()) {
+                            sql1 = sqli + m.getGuild().getId() + "," + m.getUser().getId() + "," + role.getId() + ")";
+                            stmt1.setLong(3, role.getIdLong());
+                            ctn += stmt1.executeUpdate();
+                        }
                     }
+                    stmt2.setString(3, m.getEffectiveName());
+                    ctn += stmt2.executeUpdate();
                     if (ctn > 0)
-                        stmt.getConnection().commit();
+                        conn.commit();
                 } catch (SQLException ex) {
                     sqlError(sql1, ex);
                 }
             });
-            stmt.close();
+            stmt1.close();
+            stmt2.close();
+            Output.println("Reload done");
         } catch (SQLException ex) {
             sqlError(sql, ex);
         }
