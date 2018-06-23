@@ -9,8 +9,8 @@ import java.util.Map;
 
 @SuppressWarnings("WeakerAccess")
 public class Global {
-    public static final String version = "v2.8 - ac prj";
-    public static final String build = "3";
+    public static final String version = "v2.9 - ac prj";
+    public static final String build = "1";
 
     private static Global gbl = new Global();
 

@@ -9,6 +9,7 @@ import net.dv8tion.jda.core.managers.GuildController;
 import java.sql.*;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
 import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
 import java.util.List;
@@ -624,7 +625,7 @@ public class DbInterface {
     }
 
     public void removeRole(Guild guild, User user, List<Role> roles) {
-        String partsql = "UPDATE MemberRoles SET expireDate=" + Timestamp.valueOf(LocalDateTime.now().plus(1, ChronoUnit.MINUTES)) + " WHERE guildId=" + guild.getId() + " AND userId=" + user.getId() + " AND roleId=";
+        String partsql = "UPDATE MemberRoles SET expireDate=" + LocalDateTime.now().plus(1, ChronoUnit.MINUTES).format(DateTimeFormatter.ISO_LOCAL_DATE_TIME) + " WHERE guildId=" + guild.getId() + " AND userId=" + user.getId() + " AND roleId=";
         String sql = "";
 
         try {
@@ -643,7 +644,7 @@ public class DbInterface {
             if(ctn>0) {
                 ctn=0;
                 stmt = roleRemoveStmt[1];
-                stmt.setString(1, Timestamp.valueOf(LocalDateTime.now().plus(1, ChronoUnit.MINUTES)).toString());
+                stmt.setString(1, LocalDateTime.now().plus(1, ChronoUnit.MINUTES).format(DateTimeFormatter.ISO_LOCAL_DATE_TIME));
                 stmt.setLong(2, guild.getIdLong());
                 stmt.setLong(3, user.getIdLong());
 
@@ -720,7 +721,7 @@ public class DbInterface {
         String sql = "SELECT roleId FROM MemberRoles WHERE guildId=" + guild.getId() + " AND userId=" + user.getId() + " AND expireDate>" + Date.valueOf(LocalDate.now());
         try {
             PreparedStatement stmt = restoreStmt;
-            stmt.setString(3, Timestamp.valueOf(LocalDateTime.now()).toString());
+            stmt.setString(3, LocalDateTime.now().format(DateTimeFormatter.ISO_LOCAL_DATE_TIME));
             stmt.setLong(1, guild.getIdLong());
             stmt.setLong(2, user.getIdLong());
             ResultSet rs = stmt.executeQuery();
@@ -737,7 +738,7 @@ public class DbInterface {
             sql = "SELECT nickname FROM MemberNicks WHERE guildId=" + guild.getId() + " AND userId=" + user.getId() + " AND expireDate>" + Date.valueOf(LocalDate.now());
 
             stmt = conn.prepareStatement("SELECT DISTINCT nickname FROM MemberNick WHERE guildId=? AND userId=? AND expireDate>?");
-            stmt.setString(3, Timestamp.valueOf(LocalDateTime.now()).toString());
+            stmt.setString(3, LocalDateTime.now().format(DateTimeFormatter.ISO_LOCAL_DATE_TIME));
             stmt.setLong(1, guild.getIdLong());
             stmt.setLong(2, user.getIdLong());
             rs = stmt.executeQuery();
@@ -786,26 +787,26 @@ public class DbInterface {
         String sql= "";
         try {
             int ctn = 0;
-            sql = "SELECT * FROM MemberRoles,MemberNick WHERE guildId=" + guild.getId() + " AND userId=" + user.getId() + " AND expireDate=null";
+            sql = "SELECT * FROM MemberRoles,MemberNick WHERE guildId=" + guild.getId() + " AND userId=" + user.getId() + " AND expireDate IS NULL";
             PreparedStatement stmt = saveUserStmt[0];
             stmt.setLong(1, guild.getIdLong());
             stmt.setLong(2, user.getIdLong());
-            stmt.setString(3, Timestamp.valueOf(LocalDateTime.now()).toString());
+            stmt.setString(3, LocalDateTime.now().format(DateTimeFormatter.ISO_LOCAL_DATE_TIME));
             ResultSet rs = stmt.executeQuery();
             if(rs.next()) {
-                sql = "UPDATE MemberRoles SET expireDate=" + Timestamp.valueOf(LocalDateTime.now().plus(1, ChronoUnit.DAYS)) + " WHERE guildId=" + guild.getId() + " AND userId=" + user.getId() + " AND expireDate=null";
+                sql = "UPDATE MemberRoles SET expireDate=" + LocalDateTime.now().plus(1, ChronoUnit.DAYS).format(DateTimeFormatter.ISO_LOCAL_DATE_TIME) + " WHERE guildId=" + guild.getId() + " AND userId=" + user.getId() + " AND expireDate IS NULL";
                 stmt = saveUserStmt[1];
-                stmt.setString(1, Timestamp.valueOf(LocalDateTime.now().plus(1, ChronoUnit.DAYS)).toString());
+                stmt.setString(1, LocalDateTime.now().plus(1, ChronoUnit.DAYS).format(DateTimeFormatter.ISO_LOCAL_DATE_TIME));
                 stmt.setLong(2, guild.getIdLong());
                 stmt.setLong(3, user.getIdLong());
-                stmt.setString(4, Timestamp.valueOf(LocalDateTime.now()).toString());
+                stmt.setString(4, LocalDateTime.now().format(DateTimeFormatter.ISO_LOCAL_DATE_TIME));
                 ctn += stmt.executeUpdate();
-                sql = "UPDATE MemberNick SET expireDate=" + Timestamp.valueOf(LocalDateTime.now().plus(1, ChronoUnit.DAYS)) + " WHERE guildId=" + guild.getId() + " AND userId=" + user.getId() + " AND expireDate=null";
+                sql = "UPDATE MemberNick SET expireDate=" + LocalDateTime.now().plus(1, ChronoUnit.DAYS).format(DateTimeFormatter.ISO_LOCAL_DATE_TIME) + " WHERE guildId=" + guild.getId() + " AND userId=" + user.getId() + " AND expireDate IS NULL";
                 stmt = saveUserStmt[2];
-                stmt.setString(1, Timestamp.valueOf(LocalDateTime.now().plus(1, ChronoUnit.DAYS)).toString());
+                stmt.setString(1, LocalDateTime.now().plus(1, ChronoUnit.DAYS).format(DateTimeFormatter.ISO_LOCAL_DATE_TIME));
                 stmt.setLong(2, guild.getIdLong());
                 stmt.setLong(3, user.getIdLong());
-                stmt.setString(4, Timestamp.valueOf(LocalDateTime.now()).toString());
+                stmt.setString(4, LocalDateTime.now().format(DateTimeFormatter.ISO_LOCAL_DATE_TIME));
                 ctn += stmt.executeUpdate();
                 if (ctn > 0)
                     stmt.getConnection().commit();

@@ -4,6 +4,7 @@ import org.fusesource.jansi.Ansi;
 
 import java.sql.*;
 import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
 import java.time.temporal.ChronoUnit;
 import java.util.Set;
 import java.util.TreeSet;
@@ -12,10 +13,10 @@ public class AutoCleaner implements Runnable {
     private Connection conn;
     @Override
     public void run() {
-        Timestamp last = Timestamp.valueOf(LocalDateTime.now().minus(2,ChronoUnit.HOURS));
+        LocalDateTime last = LocalDateTime.now().minus(2, ChronoUnit.HOURS);
         while (!Thread.interrupted()){
             try {
-                if(last.before(Timestamp.valueOf(LocalDateTime.now().minus(1,ChronoUnit.HOURS)))){
+                if (last.isBefore(LocalDateTime.now().minus(1, ChronoUnit.HOURS))) {
                     MyListener.dbExecutor.pause();
                     String sql = "";
                         try {
@@ -33,7 +34,7 @@ public class AutoCleaner implements Runnable {
                                     "    SELECT guildid,userId,expireDate FROM MemberNick " +
                                     "  ) AS A " +
                                     " WHERE expireDate<?");
-                            stmt.setString(1, Timestamp.valueOf(LocalDateTime.now()).toString());
+                            stmt.setString(1, LocalDateTime.now().format(DateTimeFormatter.ISO_LOCAL_DATE_TIME));
                             ResultSet rs = stmt.executeQuery();
                             if(rs.next()) {
                                 Set<Long> guilds = new TreeSet<>();
@@ -45,14 +46,14 @@ public class AutoCleaner implements Runnable {
                                 }while (rs.next());
                                 rs.close();
                                 stmt.close();
-                                sql = "DELETE FROM MemberRoles WHERE expireDate<"+Timestamp.valueOf(LocalDateTime.now());
+                                sql = "DELETE FROM MemberRoles WHERE expireDate<" + LocalDateTime.now().format(DateTimeFormatter.ISO_LOCAL_DATE_TIME);
                                 stmt = conn.prepareStatement("DELETE FROM MemberRoles WHERE expireDate<?");
-                                stmt.setString(1, Timestamp.valueOf(LocalDateTime.now()).toString());
+                                stmt.setString(1, LocalDateTime.now().format(DateTimeFormatter.ISO_LOCAL_DATE_TIME));
                                 ctn = stmt.executeUpdate();
                                 stmt.close();
-                                sql = "DELETE FROM MemberNick WHERE expireDate<"+Timestamp.valueOf(LocalDateTime.now());
+                                sql = "DELETE FROM MemberNick WHERE expireDate<" + LocalDateTime.now().format(DateTimeFormatter.ISO_LOCAL_DATE_TIME);
                                 stmt = conn.prepareStatement("DELETE FROM MemberNick WHERE expireDate<?");
-                                stmt.setString(1, Timestamp.valueOf(LocalDateTime.now()).toString());
+                                stmt.setString(1, LocalDateTime.now().format(DateTimeFormatter.ISO_LOCAL_DATE_TIME));
                                 ctn += stmt.executeUpdate();
                                 stmt.close();
                                 if (ctn > 0) {
