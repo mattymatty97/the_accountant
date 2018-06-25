@@ -182,10 +182,6 @@ public class DbInterface {
     }
 
     public String clearAdmin(Guild guild, ResourceBundle output, long messageId) {
-        return clearRole(guild, output, messageId, 1);
-    }
-
-    private String clearRole(Guild guild, ResourceBundle output, long messageId, int type) {
         String sql = "";
         String ret;
         PreparedStatement stmt;
@@ -194,14 +190,11 @@ public class DbInterface {
             sql = "DELETE FROM roles WHERE guildid=" + guild.getId();
             synchronized (clRoleStmt) {
                 stmt.setLong(1, guild.getIdLong());
-                stmt.setLong(2, type);
+                stmt.setLong(2, 2);
                 stmt.executeUpdate();
                 stmt.getConnection().commit();
             }
-            if (type == 1)
-                ret = output.getString("admin-clear");
-            else
-                ret = output.getString("mod-clear");
+            ret = output.getString("admin-clear");
             Logger.logger.logReponse("cleared mods", guild, messageId);
         } catch (SQLException ex) {
             return sqlError(sql, ex);
