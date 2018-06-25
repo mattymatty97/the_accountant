@@ -517,6 +517,7 @@ public class DbInterface {
                             if (!rs.next())
                                 stmt4.executeUpdate();
                             rs.close();
+                            autoRole(g);
                         } catch (SQLException ex) {
                             sqlError(sql1, ex);
                         }
