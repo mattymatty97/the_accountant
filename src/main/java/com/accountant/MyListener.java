@@ -311,6 +311,7 @@ public class MyListener implements EventListener {
                                     Logger.logger.logReponse("user not allowed", guild, messageId);
                                 }
                                 break;
+                            //------ADMIN---------------ROLES----------------------------------------
                             case "roles":
                                 channel.sendTyping().queue();
                                 //if member is allowed
@@ -336,6 +337,7 @@ public class MyListener implements EventListener {
                                 if (member.isOwner() || admin) {
                                     //if there are other arguments
                                     channel.sendTyping().queue();
+                                    Logger.logger.logMessage("forgive", message);
                                     if (args.length > 1) {
                                         //get mentioned roles
                                         try {
@@ -352,12 +354,51 @@ public class MyListener implements EventListener {
                                     }
                                     break;
                                 } else {
-                                    Logger.logger.logMessage("mod", message);
+                                    Logger.logger.logMessage("forgive", message);
                                     channel.sendMessage(output.getString("error-user-permission")).queue();
                                     Logger.logger.logReponse("user not allowed", guild, messageId);
                                 }
                                 break;
-                            //------OWNER-----------reload--------------------------------------------
+                            //------ADMIN--------------CHANNEL-----------------------------------------
+                            case "wbchannel":
+                                if (member.isOwner() || admin) {
+                                    //if there are other arguments
+                                    channel.sendTyping().queue();
+                                    Logger.logger.logMessage("wbchannel", message);
+                                    //get mentioned roles
+                                    String ret;
+                                    List<TextChannel> mentions = message.getMentionedChannels();
+                                    if (mentions.size() == 0)
+                                        ret = dbExecutor.submit(() -> dbInterface.changeChannel(guild, output, null, messageId)).get();
+                                    else
+                                        ret = dbExecutor.submit(() -> dbInterface.changeChannel(guild, output, mentions.get(0), messageId)).get();
+
+                                    channel.sendMessage(ret).queue();
+                                    break;
+                                } else {
+                                    Logger.logger.logMessage("wbchannel", message);
+                                    channel.sendMessage(output.getString("error-user-permission")).queue();
+                                    Logger.logger.logReponse("user not allowed", guild, messageId);
+                                }
+                                break;
+                            case "wbtest":
+                                if (member.isOwner() || admin) {
+                                    //if there are other arguments
+                                    channel.sendTyping().queue();
+                                    Logger.logger.logMessage("wbtest", message);
+                                    //get mentioned roles
+                                    TextChannel wbChannel = dbExecutor.submit(() -> dbInterface.getChannel(guild)).get();
+                                    wbChannel.sendMessage(output.getString("test-message")).queue();
+                                    channel.sendMessage(output.getString("test-message-sent").replace("[channel]", wbChannel.getAsMention())).queue();
+                                    Logger.logger.logReponse("test message sent", guild, messageId);
+                                    break;
+                                } else {
+                                    Logger.logger.logMessage("wbtest", message);
+                                    channel.sendMessage(output.getString("error-user-permission")).queue();
+                                    Logger.logger.logReponse("user not allowed", guild, messageId);
+                                }
+                                break;
+                            //------OWNER--------------RELOAD--------------------------------------------
                             default:
                                 if (member.getUser().getIdLong() == Long.parseLong(System.getenv("OWNER_ID"))) {
                                     if(command.equals("reload")){
@@ -509,7 +550,8 @@ public class MyListener implements EventListener {
                         Logger.logger.logUserEvent("JOINED - RESTORED", guild,user);
                         try {
                             String msg = output.getString("restore").replace("[mention]", member.getAsMention()).replace("[uname]", member.getEffectiveName());
-                            event.getGuild().getDefaultChannel().sendMessage(msg + "\n" +
+                            TextChannel channel = dbExecutor.submit(() -> dbInterface.getChannel(guild)).get();
+                            channel.sendMessage(msg + "\n" +
                                     (out > 1 ? output.getString("restored-muted") : "")).queue();
                         } catch (Exception ignore) {
                         }
@@ -563,8 +605,6 @@ public class MyListener implements EventListener {
     }
 
 
-
-
     private void onRoleDelete(RoleDeleteEvent event) {
         ResourceBundle output;
         try {
@@ -574,7 +614,7 @@ public class MyListener implements EventListener {
                 if (dbExecutor.submit(() -> dbInterface.onRoleDeleted(event.getRole())).get()) {
                     Logger.logger.logEvent("role deleted in guild: ", event.getGuild());
                     try {
-                        TextChannel channel = event.getGuild().getDefaultChannel();
+                        TextChannel channel = dbExecutor.submit(() -> dbInterface.getChannel(event.getGuild())).get();
                         channel.sendMessage(output.getString("event-role-deleted")).queue();
                         channel.sendMessage(output.getString("event-role-deleted-2")).queue();
                     } catch (InsufficientPermissionException ex) {
@@ -603,7 +643,7 @@ public class MyListener implements EventListener {
         try {
             if(!dbExecutor.submit(()->dbInterface.guildIsInDb(event.getGuild())).get()) {
                 try {
-                    event.getGuild().getDefaultChannel().sendMessage(output.getString("event-join").replace("[version]", Global.version)).queue();
+                    Optional.ofNullable(event.getGuild().getSystemChannel()).orElse(event.getGuild().getDefaultChannel()).sendMessage(output.getString("event-join").replace("[version]", Global.version)).queue();
                 } catch (InsufficientPermissionException ex) {
                     event.getGuild().getOwner().getUser().openPrivateChannel().queue((PrivateChannel channel) ->
                             channel.sendMessage(output.getString("event-join").replace("[version]", Global.version)).queue());
@@ -618,9 +658,6 @@ public class MyListener implements EventListener {
         updateServerCount(event.getJDA());
     }
 
-    
-
-
     private void onGuildLeave(GuildLeaveEvent event) {
         Logger.logger.logEvent("GUILD HAS LEAVED", event.getGuild());
         try {
@@ -631,8 +668,6 @@ public class MyListener implements EventListener {
         }
         updateServerCount(event.getJDA());
     }
-
-    
 
     //prints the help message
     private void PrintHelp(MessageChannel channel, Member member, Guild guild, boolean admin) {
@@ -655,6 +690,10 @@ public class MyListener implements EventListener {
             helpMsg.addField("roles", output.getString("help-def-roles"), false);
 
             helpMsg.addField("forgive", output.getString("help-def-forgive"), false);
+
+            helpMsg.addField("wbchannel", output.getString("help-def-channel"), false);
+
+            helpMsg.addField("wbtest", output.getString("help-def-channel-test"), false);
         }
 
         helpMsg.addField("",output.getString("help-last"),false);
@@ -820,10 +859,5 @@ public class MyListener implements EventListener {
             }
         }
     }
-
-
-
-
-
 
 }

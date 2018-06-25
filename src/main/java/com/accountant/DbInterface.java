@@ -13,6 +13,7 @@ import java.time.format.DateTimeFormatter;
 import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Optional;
 import java.util.ResourceBundle;
 
 @SuppressWarnings("WeakerAccess")
@@ -30,6 +31,8 @@ public class DbInterface {
     private PreparedStatement[] nickStmt = new PreparedStatement[3];
     private PreparedStatement[] uNameStmt = new PreparedStatement[2];
     private PreparedStatement restoreStmt;
+    private PreparedStatement gChannelStmt;
+    private PreparedStatement chChannelStmt;
 
     private List<PreparedStatement> stmts = new ArrayList<>(29);
 
@@ -126,7 +129,8 @@ public class DbInterface {
                     Logger.logger.logReponse("role not admin", guild, messageId);
                 }
             } catch (SQLException ex) {
-                return sqlError(sql, ex);
+                sqlError(sql, ex);
+                return null;
             }
         }
         return ret;
@@ -176,7 +180,8 @@ public class DbInterface {
                 }
             }
         } catch (SQLException ex) {
-            return sqlError(sql, ex);
+            sqlError(sql, ex);
+            return null;
         }
         return ret;
     }
@@ -190,14 +195,15 @@ public class DbInterface {
             sql = "DELETE FROM roles WHERE guildid=" + guild.getId();
             synchronized (clRoleStmt) {
                 stmt.setLong(1, guild.getIdLong());
-                stmt.setLong(2, 2);
+                stmt.setLong(2, 1);
                 stmt.executeUpdate();
                 stmt.getConnection().commit();
             }
             ret = output.getString("admin-clear");
             Logger.logger.logReponse("cleared mods", guild, messageId);
         } catch (SQLException ex) {
-            return sqlError(sql, ex);
+            sqlError(sql, ex);
+            return null;
         }
         return ret;
     }
@@ -209,12 +215,34 @@ public class DbInterface {
         try {
             stmt = lsRoleStmt;
             sql = "SELECT roleid FROM roles WHERE guildid=" + guild.getIdLong();
-            syncModList(guild, ret, stmt, 1);
+            syncModList(guild, ret, stmt);
         } catch (SQLException ex) {
-            return sqlError(sql, ex);
+            sqlError(sql, ex);
+            return null;
         }
         Logger.logger.logReponse("listed admins", guild, messageId);
         return ret.toString();
+    }
+
+    public String changeChannel(Guild guild, ResourceBundle output, TextChannel channel, long messageId) {
+        PreparedStatement stmt = chChannelStmt;
+        String sql = "";
+        try {
+            if (channel == null)
+                stmt.setNull(1, Types.BIGINT);
+            else
+                stmt.setLong(1, channel.getIdLong());
+            stmt.setLong(2, guild.getIdLong());
+
+            if (stmt.executeUpdate() > 0)
+                conn.commit();
+
+            Logger.logger.logReponse((channel == null) ? "channel-reset" : "channel-set", guild, messageId);
+            return output.getString((channel == null) ? "channel-reset" : "channel-set");
+        } catch (SQLException ex) {
+            sqlError(sql, ex);
+            return null;
+        }
     }
 
     public boolean memberIsAdmin(Member member, long guild) {
@@ -339,7 +367,7 @@ public class DbInterface {
         String sql="";
         try {
             Statement stmt = conn.createStatement();
-            sql = "INSERT INTO guilds(guildid, guildname) VALUES (" + guild.getIdLong() + ",'" + guild.getName().replaceAll("[\',\"]", "") + "')";
+            sql = "INSERT INTO guilds(guildid) VALUES (" + guild.getIdLong() + ")";
             if (stmt.executeUpdate(sql) > 0)
                 stmt.getConnection().commit();
             stmt.close();
@@ -390,6 +418,28 @@ public class DbInterface {
     }
 
 
+    public TextChannel getChannel(Guild guild) {
+        PreparedStatement stmt = gChannelStmt;
+        TextChannel channel = Optional.ofNullable(guild.getSystemChannel()).orElse(guild.getDefaultChannel());
+        String sql = "SELECT channel FROM guilds WHERE guildId=" + guild.getId();
+        try {
+            long id;
+            stmt.setLong(1, guild.getIdLong());
+            ResultSet rs = stmt.executeQuery();
+            if (rs.next()) {
+                id = rs.getLong(1);
+                if (!rs.wasNull()) {
+                    TextChannel S_channel = guild.getTextChannelById(id);
+                    if (S_channel != null)
+                        channel = S_channel;
+                }
+            }
+        } catch (SQLException ex) {
+            sqlError(sql, ex);
+        }
+        return channel;
+    }
+
     public boolean guildIsInDb(Guild guild) {
         String sql = "";
         boolean ret = false;
@@ -411,23 +461,11 @@ public class DbInterface {
         String sql = "";
         try {
             Statement stmt1 = conn.createStatement();
-            if (guildIsInDb(guild)) {
-                ResultSet rs;
-                sql = "SELECT guildName FROM guilds WHERE guildid=" + guild.getIdLong();
-                rs = stmt1.executeQuery(sql);
-                if(rs.next()) {
-                    if(!rs.getString("guildName").equals(guild.getName().replaceAll("[',\"]", ""))) {
-                        sql = "UPDATE guilds SET guildname='" + guild.getName().replaceAll("[',\"]", "") + "' WHERE guildid=" + guild.getIdLong();
-                        if (stmt1.executeUpdate(sql) > 0)
-                            conn.commit();
-                    }
-                }
-                rs.close();
-            } else {
+            if (!guildIsInDb(guild)) {
                 newGuild(guild);
                 autoRole(guild);
                 try {
-                    guild.getDefaultChannel().sendMessage(output.getString("event-join").replace("[version]", Global.version)).queue();
+                    getChannel(guild).sendMessage(output.getString("event-join").replace("[version]", Global.version)).queue();
                 } catch (InsufficientPermissionException ex) {
                     guild.getOwner().getUser().openPrivateChannel().queue((PrivateChannel channel) ->
                             channel.sendMessage(output.getString("event-join").replace("[version]", Global.version)).queue());
@@ -449,6 +487,7 @@ public class DbInterface {
 
     public void rePopolateDb(MessageReceivedEvent event) {
         String sql = "";
+        String sql2 = "";
         try {
             sql = "DELETE FROM MemberRoles WHERE expireDate IS NULL";
             PreparedStatement stmt = conn.prepareStatement("DELETE FROM MemberRoles WHERE expireDate IS NULL");
@@ -459,12 +498,31 @@ public class DbInterface {
             stmt.executeUpdate();
             conn.commit();
             stmt.close();
-            final String sqli = sql = "INSERT INTO MemberRoles(guildId, userId, roleId) VALUES (";
+            final String sqli = "INSERT INTO MemberRoles(guildId, userId, roleId) VALUES (";
+            final String sqli2 = "SELECT * FROM guilds WHERE guildId=";
+            final String sqli3 = "INSERT INTO guilds(guildId) VALUE (";
             final PreparedStatement stmt1 = conn.prepareStatement("INSERT INTO MemberRoles(guildId, userId, roleId) VALUES (?,?,?)");
             final PreparedStatement stmt2 = conn.prepareStatement("INSERT INTO MemberNick(guildId, userId, nickname) VALUES (?,?,?)");
-            event.getJDA().getGuilds().stream().peek(Output::println).flatMap(a -> a.getMembers().stream()).forEach(m -> {
+            final PreparedStatement stmt3 = conn.prepareStatement("SELECT * FROM guilds WHERE guildId=?");
+            final PreparedStatement stmt4 = conn.prepareStatement("INSERT INTO guilds(guildId) VALUES (?)");
+            event.getJDA().getGuilds().stream().peek(Output::println)
+                    .peek(g -> {
+                        String sql1 = "";
+                        try {
+                            stmt4.setLong(1, g.getIdLong());
+                            stmt3.setLong(1, g.getIdLong());
+                            sql1 = sqli2 + g.getId();
+                            ResultSet rs = stmt3.executeQuery();
+                            sql1 = sqli3 + g.getId() + ")";
+                            if (!rs.next())
+                                stmt4.executeUpdate();
+                            rs.close();
+                        } catch (SQLException ex) {
+                            sqlError(sql1, ex);
+                        }
+                    })
+                    .flatMap(a -> a.getMembers().stream()).forEach(m -> {
                 String sql1 = "";
-                int ctn = 0;
                 try {
                     stmt1.setLong(1, m.getGuild().getIdLong());
                     stmt1.setLong(2, m.getUser().getIdLong());
@@ -474,19 +532,20 @@ public class DbInterface {
                         if (!role.isPublicRole() && role.isManaged()) {
                             sql1 = sqli + m.getGuild().getId() + "," + m.getUser().getId() + "," + role.getId() + ")";
                             stmt1.setLong(3, role.getIdLong());
-                            ctn += stmt1.executeUpdate();
+                            stmt1.executeUpdate();
                         }
                     }
                     stmt2.setString(3, m.getEffectiveName());
-                    ctn += stmt2.executeUpdate();
-                    if (ctn > 0)
-                        conn.commit();
+                    stmt2.executeUpdate();
                 } catch (SQLException ex) {
                     sqlError(sql1, ex);
                 }
             });
             stmt1.close();
             stmt2.close();
+            stmt3.close();
+            stmt4.close();
+            conn.commit();
             Output.println("Reload done");
         } catch (SQLException ex) {
             sqlError(sql, ex);
@@ -707,10 +766,10 @@ public class DbInterface {
         }
     }
 
-    private void syncModList(Guild guild, StringBuilder ret, PreparedStatement stmt, int type) throws SQLException {
+    private void syncModList(Guild guild, StringBuilder ret, PreparedStatement stmt) throws SQLException {
         ResultSet rs;
         stmt.setLong(1, guild.getIdLong());
-        stmt.setLong(2, type);
+        stmt.setLong(2, 1);
         rs = stmt.executeQuery();
         while (rs.next()) {
             Role role = guild.getRoleById(rs.getLong("roleid"));
@@ -722,7 +781,7 @@ public class DbInterface {
         rs.close();
     }
 
-    private String sqlError(String sql, SQLException ex) {
+    private void sqlError(String sql, SQLException ex) {
         try {
             conn.rollback();
         } catch (SQLException ignored) {
@@ -731,7 +790,6 @@ public class DbInterface {
         Logger.logger.logError(ex.getMessage());
         Logger.logger.logError("SQLState: " + ex.getSQLState());
         Logger.logger.logError("VendorError: " + ex.getErrorCode());
-        return null;
     }
 
     DbInterface(Connection conn) {
@@ -762,6 +820,8 @@ public class DbInterface {
                 stmts.add(this.restoreStmt = conn.prepareStatement("SELECT DISTINCT roleId FROM MemberRoles WHERE guildId=? AND userId=? AND expireDate>?"));
                 stmts.add(this.uNameStmt[0] = conn.prepareStatement("SELECT * FROM MemberNick WHERE userId=? AND nickname=? AND expireDate IS NULL"));
                 stmts.add(this.uNameStmt[1] = conn.prepareStatement("UPDATE MemberNick SET nickname=? WHERE userId=? AND nickname=? AND expireDate IS NULL"));
+                stmts.add(this.gChannelStmt = conn.prepareStatement("SELECT channel FROM guilds WHERE guildId=? "));
+                stmts.add(this.chChannelStmt = conn.prepareStatement("UPDATE guilds SET channel=? WHERE guildId=?"));
                 this.conn = conn;
             } catch (SQLException ex) {
                 Logger.logger.logError("SQLError in SQL preparation");
