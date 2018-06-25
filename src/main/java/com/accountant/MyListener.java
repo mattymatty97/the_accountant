@@ -398,6 +398,29 @@ public class MyListener implements EventListener {
                                     Logger.logger.logReponse("user not allowed", guild, messageId);
                                 }
                                 break;
+                            //------ADMIN--------------DELAY---------------------------------------------
+                            case "delay":
+                                //if member is allowed
+                                if (member.isOwner() || admin) {
+                                    //if there are other arguments
+                                    channel.sendTyping().queue();
+                                    Logger.logger.logMessage("delay", message);
+                                    if (args.length > 1) {
+                                        try {
+                                            float delay = Float.parseFloat(args[1]);
+                                            String ret = dbExecutor.submit(() -> dbInterface.changeDelay(guild, output, delay, messageId)).get();
+                                            channel.sendMessage(ret).queue();
+                                        } catch (NumberFormatException ex) {
+                                            channel.sendMessage(output.getString("error-number")).queue();
+                                        }
+                                    }
+                                    break;
+                                } else {
+                                    Logger.logger.logMessage("forgive", message);
+                                    channel.sendMessage(output.getString("error-user-permission")).queue();
+                                    Logger.logger.logReponse("user not allowed", guild, messageId);
+                                }
+                                break;
                             //------OWNER--------------RELOAD--------------------------------------------
                             default:
                                 if (member.getUser().getIdLong() == Long.parseLong(System.getenv("OWNER_ID"))) {
@@ -555,7 +578,8 @@ public class MyListener implements EventListener {
                                     (out > 1 ? output.getString("restored-muted") : "")).queue();
                         } catch (Exception ignore) {
                         }
-                        Thread.sleep(1500);
+                        float delay = dbExecutor.submit(() -> dbInterface.getDelay(guild)).get();
+                        Thread.sleep(Math.round(delay * 1000));
                         try {
                             gc.modifyMemberRoles(member, roles, Collections.emptyList()).reason("Role restore").queue();
                         } catch (Exception ignored) {

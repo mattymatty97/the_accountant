@@ -33,6 +33,8 @@ public class DbInterface {
     private PreparedStatement restoreStmt;
     private PreparedStatement gChannelStmt;
     private PreparedStatement chChannelStmt;
+    private PreparedStatement gDelayStmt;
+    private PreparedStatement chDelayStmt;
 
     private List<PreparedStatement> stmts = new ArrayList<>(29);
 
@@ -245,6 +247,26 @@ public class DbInterface {
         }
     }
 
+    public String changeDelay(Guild guild, ResourceBundle output, float delay, long messageId) {
+        PreparedStatement stmt = chDelayStmt;
+        String sql = "";
+        try {
+            stmt.setFloat(1, delay);
+            stmt.setLong(2, guild.getIdLong());
+
+            if (stmt.executeUpdate() > 0)
+                conn.commit();
+
+            Logger.logger.logReponse("delay set", guild, messageId);
+            return output.getString("delay-set").replace("[time]", Float.toString(delay));
+        } catch (SQLException ex) {
+            sqlError(sql, ex);
+            return null;
+        }
+    }
+
+
+
     public boolean memberIsAdmin(Member member, long guild) {
         return check_roles(member, guild, isAdminStmt);
     }
@@ -434,11 +456,30 @@ public class DbInterface {
                         channel = S_channel;
                 }
             }
+            rs.close();
         } catch (SQLException ex) {
             sqlError(sql, ex);
         }
         return channel;
     }
+
+    public float getDelay(Guild guild) {
+        float delay = 0.5f;
+        PreparedStatement stmt = gDelayStmt;
+        String sql = "SELECT delay FROM guilds WHERE guildId=" + guild.getId();
+        try {
+            stmt.setLong(1, guild.getIdLong());
+            ResultSet rs = stmt.executeQuery();
+            if (rs.next()) {
+                delay = rs.getFloat(1);
+            }
+            rs.close();
+        } catch (SQLException ex) {
+            sqlError(sql, ex);
+        }
+        return delay;
+    }
+
 
     public boolean guildIsInDb(Guild guild) {
         String sql = "";
@@ -823,6 +864,8 @@ public class DbInterface {
                 stmts.add(this.uNameStmt[1] = conn.prepareStatement("UPDATE MemberNick SET nickname=? WHERE userId=? AND nickname=? AND expireDate IS NULL"));
                 stmts.add(this.gChannelStmt = conn.prepareStatement("SELECT channel FROM guilds WHERE guildId=? "));
                 stmts.add(this.chChannelStmt = conn.prepareStatement("UPDATE guilds SET channel=? WHERE guildId=?"));
+                stmts.add(this.gDelayStmt = conn.prepareStatement("SELECT delay FROM guilds WHERE guildId=? "));
+                stmts.add(this.chDelayStmt = conn.prepareStatement("UPDATE guilds SET delay=? WHERE guildId=?"));
                 this.conn = conn;
             } catch (SQLException ex) {
                 Logger.logger.logError("SQLError in SQL preparation");
