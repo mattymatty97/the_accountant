@@ -4,7 +4,6 @@ import com.accountant.datas.Datas;
 import com.accountant.datas.GeneralMsg;
 import com.accountant.datas.GuildMsg;
 import com.accountant.datas.RemoteMsg;
-import net.dv8tion.jda.core.EmbedBuilder;
 import net.dv8tion.jda.core.entities.Guild;
 import net.dv8tion.jda.core.entities.Member;
 import net.dv8tion.jda.core.entities.Message;
@@ -64,13 +63,6 @@ public class Logger implements Runnable{
 
         queue.add(new GuildMsg(sbt.toString() + sb.toString(), message.getGuild(),false));
         sem.release();
-
-        LogLinker act = Global.getGbl().getMapGuild().get(message.getGuild().getIdLong());
-        if(act!=null){
-            EmbedBuilder builder = act.getMessage();
-            builder.setAuthor(message.getAuthor().getName(),null,message.getAuthor().getAvatarUrl());
-            builder.setDescription(message.getRawContent());
-        }
     }
 
     public void logReponse(String log,Guild guild,long messageId){
@@ -87,14 +79,6 @@ public class Logger implements Runnable{
 
         queue.add(new GuildMsg(sbt.toString() + sb.toString(), guild,true));
         sem.release();
-
-        LogLinker act = Global.getGbl().getMapGuild().get(guild.getIdLong());
-        if(act!=null) {
-            EmbedBuilder build = act.getMessage();
-            build.addField("Reponse",log,false);
-            act.getChannel().sendMessage(build.build()).queue();
-            build.clearFields();
-        }
     }
 
     public void logEvent(String log,Guild guild){
@@ -110,16 +94,6 @@ public class Logger implements Runnable{
 
         queue.add(new GuildMsg(sb.toString(), guild,false));
         sem.release();
-
-        LogLinker act = Global.getGbl().getMapGuild().get(guild.getIdLong());
-        if(act!=null) {
-            EmbedBuilder build = act.getMessage();
-            build.setAuthor(guild.getName(),null,guild.getIconUrl());
-            build.setDescription("");
-            build.addField("EVENT",log+": "+guild.getName(),false);
-            act.getChannel().sendMessage(build.build()).queue();
-            build.clearFields();
-        }
     }
 
     public void logUserEvent(String log,Guild guild,User user){
@@ -148,16 +122,6 @@ public class Logger implements Runnable{
 
         queue.add(new GuildMsg(sbt + sb.toString(), guild,false));
         sem.release();
-
-        LogLinker act = Global.getGbl().getMapGuild().get(guild.getIdLong());
-        if(act!=null) {
-            EmbedBuilder build = act.getMessage();
-            build.setAuthor(guild.getName(),null,guild.getIconUrl());
-            build.setDescription("");
-            build.addField("EVENT",log+": "+guild.getName(),false);
-            act.getChannel().sendMessage(build.build()).queue();
-            build.clearFields();
-        }
     }
 
     public void logError(String log){
@@ -205,45 +169,6 @@ public class Logger implements Runnable{
         queue.add(new GeneralMsg(sbt.toString() + log));
         sem.release();
     }
-
-    public void logRemoteMsg(String log, Message message, Guild guild){
-
-        String time = stf.format(new Date());
-        StringBuilder sb = new StringBuilder();
-        StringBuilder sbt = new StringBuilder();
-        Member sender = message.getMember();
-        logGeneral("event in guild "+message.getGuild().getName()+" ["+message.getGuild().getId()+"]");
-        sbt.append("[").append(time).append("]\t");
-
-        sb.append("messageId [").append(message.getId()).append("]\t| ");
-        sb.append("User \"").append(sender.getEffectiveName()).append("\"(").append(sender.getUser().getId()).append(")");
-        sb.append(" triggered ").append(log);
-        sb.append("[").append(guild.getId()).append("]");
-
-        Output.println(sbt.toString() + ansi().fgBrightYellow().a(sb.toString()).reset());
-
-        queue.add(new RemoteMsg(sbt.toString() + sb.toString(), message.getGuild(), guild, false));
-
-        sem.release();
-    }
-
-    public void logRemoteRep(String log,Guild guild,long messageId,Guild remote){
-
-        String time = stf.format(new Date());
-        StringBuilder sb = new StringBuilder();
-        StringBuilder sbt = new StringBuilder();
-
-        sbt.append("[").append(time).append("]\t");
-        sb.append("messageId [").append(messageId).append("]\t| ").append(log);
-
-
-        Output.println(sbt.toString() + sb.toString());
-
-
-        queue.add(new RemoteMsg(sbt.toString() + sb.toString(), guild, remote, true));
-        sem.release();
-    }
-
 
     public void logInit() {
         String date = sdf.format(new Date());

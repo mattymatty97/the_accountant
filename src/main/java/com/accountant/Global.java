@@ -9,7 +9,7 @@ import java.util.Map;
 
 @SuppressWarnings("WeakerAccess")
 public class Global {
-    public static final String version = "v2.9 - ac prj";
+    public static final String version = "v2.10 - ac prj";
     public static final String build = "1";
 
     private static Global gbl = new Global();
@@ -18,8 +18,6 @@ public class Global {
         return gbl;
     }
 
-    private Map<Long,LogLinker> mapGuild;
-    private Map<Long,LogLinker> mapChannel;
     private MessageChannel listener;
     private FileWriter fwGlobal;
     private Map<Long,FileWriter> fwServers;
@@ -27,14 +25,6 @@ public class Global {
 
     public Map<String, String> getEnvMap() {
         return envMap;
-    }
-
-    public Map<Long, LogLinker> getMapGuild() {
-        return mapGuild;
-    }
-
-    public Map<Long, LogLinker> getMapChannel() {
-        return mapChannel;
     }
 
     public MessageChannel getListener() {
@@ -58,8 +48,6 @@ public class Global {
     }
 
     private Global(){
-        mapChannel= new HashMap<>();
-        mapGuild= new HashMap<>();
         fwServers=new HashMap<>();
     }
 }

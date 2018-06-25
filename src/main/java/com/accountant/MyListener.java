@@ -102,11 +102,9 @@ public class MyListener implements EventListener {
                 ev.getTextChannel().sendMessage("Missing permission EMBED_LINKS please fix").queue();
                 return;
             }
-            MessageChannel channel = ev.getChannel();
             //get message
             Message message = ev.getMessage();
-            if (Global.getGbl().getMapChannel().get(channel.getIdLong()) != null ||
-                    message.getContent().startsWith(System.getenv("BOT_PREFIX")))
+            if (message.getContent().startsWith(System.getenv("BOT_PREFIX")))
                 eventThreads.execute(() -> onMessageReceived((MessageReceivedEvent) event));
         }
         else if (event instanceof RoleDeleteEvent)
@@ -186,14 +184,7 @@ public class MyListener implements EventListener {
                         dbInterface.memberIsAdmin(member, guild.getIdLong())
                 ).get();
 
-                boolean mod = dbExecutor.submit(()->
-                        dbInterface.memberIsMod(member, guild.getIdLong())
-                ).get();
 
-
-                if (Global.getGbl().getMapChannel().get(channel.getIdLong()) != null)
-                    onConsoleMessageReceived(event);
-                else {
                     if (message.getContent().startsWith(System.getenv("BOT_PREFIX"))) {
                         if (!PermissionUtil.checkPermission(event.getTextChannel(), event.getGuild().getSelfMember(), Permission.MESSAGE_EMBED_LINKS)) {
                             channel.sendMessage("Error could not send embeds, pls change my permissions!").queue();
@@ -206,7 +197,7 @@ public class MyListener implements EventListener {
 
                             case "help":
                                 Logger.logger.logMessage("help", message);
-                                PrintHelp(channel, member, guild,admin,mod);
+                                PrintHelp(channel, member, guild, admin);
                                 Logger.logger.logReponse("help shown", guild, messageId);
                                 break;
 
@@ -222,96 +213,6 @@ public class MyListener implements EventListener {
                                             .setAuthor(guildname, null, guild.getIconUrl())
                                             .addField("ID", guild.getId(), false).build()).queue();
                                     Global.getGbl().setListener(null);
-                                }
-                                break;
-    //------ADMIN---------------MOD---------------------------------------
-                            case "mod":
-                                channel.sendTyping().queue();
-                                //if member is allowed
-
-                                if (member.isOwner() || admin) {
-                                    //if there are other arguments
-                                    if (args.length > 1) {
-                                        //get mentioned roles
-                                        List<Role> mentions = message.getMentionedRoles();
-                                        //test on second arg
-                                        Role role = null;
-                                        if(mentions.size()>=1)
-                                            role=mentions.get(0);
-
-                                        switch (args[1]) {
-                                            case "add":
-                                                //if there is a mentioned role
-                                                if(role==null)
-                                                    if(args.length>2) {
-                                                        try {
-                                                            role = guild.getRoleById(args[2]);
-                                                        } catch (NumberFormatException ex) {
-                                                            channel.sendMessage(output.getString("error-roleId-invalid")).queue();
-                                                        }
-                                                    }else{
-                                                        channel.sendMessage(output.getString("error-missing-param")).queue();
-                                                    }
-
-                                                Logger.logger.logMessage("mod add", message);
-                                                if (role!=null) {
-                                                    //call class method to add roles
-                                                    final Role rl = role;
-                                                    String msg = dbExecutor.submit(()->
-                                                            dbInterface.addMod(rl, guild, output, messageId)
-                                                    ).get();
-                                                    channel.sendMessage(msg).queue();
-                                                }
-                                                break;
-                                            case "remove":
-                                                //if there is a mentioned user
-                                                if(role==null)
-                                                    if(args.length>2) {
-                                                        try {
-                                                            role = guild.getRoleById(args[2]);
-                                                        } catch (NumberFormatException ex) {
-                                                            channel.sendMessage(output.getString("error-roleId-invalid")).queue();
-                                                        }
-                                                    }else{
-                                                        channel.sendMessage(output.getString("error-missing-param")).queue();
-                                                    }
-
-
-                                                Logger.logger.logMessage("mod remove", message);
-                                                if (role!=null) {
-                                                    //call class method to remove roles
-                                                    final Role rl = role;
-                                                    String msg = dbExecutor.submit(()->
-                                                            dbInterface.removeMod(rl, guild, output, messageId)
-                                                    ).get();
-                                                    channel.sendMessage(msg).queue();
-                                                }
-                                                break;
-                                            case "clear": {
-                                                Logger.logger.logMessage("mod clear", message);
-                                                String msg = dbExecutor.submit(() ->
-                                                        dbInterface.clearMod(guild, output, messageId)).get();
-                                                channel.sendMessage(msg).queue();
-                                                Logger.logger.logReponse("mods cleared", guild, messageId);
-                                                break;
-                                            }
-                                            case "list": {
-                                                //list all mods
-                                                Logger.logger.logMessage("mod list", message);
-                                                String msg = dbExecutor.submit(() ->
-                                                        dbInterface.listMod(guild, output, messageId)).get();
-                                                SendMsg(channel, msg);
-                                                break;
-                                            }
-                                        }
-
-                                    }
-                                    break;
-
-                                } else {
-                                    Logger.logger.logMessage("mod", message);
-                                    channel.sendMessage(output.getString("error-user-permission")).queue();
-                                    Logger.logger.logReponse("user not allowed", guild, messageId);
                                 }
                                 break;
     //------ADMIN---------------ADMIN---------------------------------------
@@ -456,72 +357,9 @@ public class MyListener implements EventListener {
                                     Logger.logger.logReponse("user not allowed", guild, messageId);
                                 }
                                 break;
-
-    //------ADMIN---------------**SUPPORT GUILD**---------------------------------------
+                            //------OWNER-----------reload--------------------------------------------
                             default:
-                                if (guildIsSupport(guild))
-                                    switch (command) {
-                                        case "console":
-                                            Logger.logger.logMessage("console", message);
-                                            if (member.isOwner() || mod) {
-                                                if (guild.getTextChannelById(channel.getIdLong()).getTopic().contains(":console:")) {
-                                                    LogLinker act = Global.getGbl().getMapChannel().get(channel.getIdLong());
-                                                    if (act == null) {
-                                                        if (args.length >= 2) {
-                                                            if (args[1].matches("\\d{18}")) {
-                                                                long guildId = Long.parseLong(args[1]);
-
-                                                                if (guildIdIsValid(guildId, message)) {
-                                                                    new LogLinker(guildId, channel);
-                                                                    channel.sendMessage(output.getString("console-started")).queue();
-                                                                    Logger.logger.logReponse("log daemon started in channel: " + channel.getName(), guild, messageId);
-                                                                } else {
-                                                                    channel.sendMessage(output.getString("error-console-non_mutual")).queue();
-                                                                    Logger.logger.logReponse("guild non mutual", guild, messageId);
-                                                                }
-                                                            } else {
-                                                                channel.sendMessage(output.getString("error-non_id")).queue();
-                                                                Logger.logger.logReponse("not an id", guild, messageId);
-                                                            }
-                                                        } else {
-                                                            channel.sendMessage(output.getString("error-console-no_id")).queue();
-                                                            Logger.logger.logReponse("mssing id", guild, messageId);
-                                                        }
-                                                    } else {
-                                                        channel.sendMessage(output.getString("error-console-active")).queue();
-                                                        Logger.logger.logReponse("already a running daemon", guild, messageId);
-                                                    }
-                                                } else {
-                                                    channel.sendMessage(output.getString("error-console-channel")).queue();
-                                                    Logger.logger.logReponse("channel not console channel", guild, messageId);
-                                                }
-                                            } else {
-                                                channel.sendMessage(output.getString("error-user-permission")).queue();
-                                                Logger.logger.logReponse("user not allowed", guild, messageId);
-                                            }
-                                            break;
-                                        case "listen":
-                                            Logger.logger.logMessage("listen", message);
-                                            if (member.isOwner() || mod) {
-                                                if (guild.getTextChannelById(channel.getIdLong()).getTopic().contains(":console:")) {
-                                                    if (Global.getGbl().getListener() == null) {
-                                                        Global.getGbl().setListener(channel);
-                                                        channel.sendMessage(output.getString("listen-enabled")).queue();
-                                                        Logger.logger.logReponse("listener enabled", guild, messageId);
-                                                    } else {
-                                                        channel.sendMessage(output.getString("error-listen")).queue();
-                                                        Logger.logger.logReponse("error listener active", guild, messageId);
-                                                    }
-                                                } else {
-                                                    channel.sendMessage(output.getString("error-console-channel")).queue();
-                                                    Logger.logger.logReponse("channel not console channel", guild, messageId);
-                                                }
-                                            } else {
-                                                channel.sendMessage(output.getString("error-user-permission")).queue();
-                                                Logger.logger.logReponse("user not allowed", guild, messageId);
-                                            }
-                                    }
-                                else if(member.getUser().getIdLong() == Long.parseLong(System.getenv("OWNER_ID"))){
+                                if (member.getUser().getIdLong() == Long.parseLong(System.getenv("OWNER_ID"))) {
                                     if(command.equals("reload")){
                                         channel.sendMessage(output.getString("reload-started")).queue();
                                         dbExecutor.submit(()->dbInterface.rePopolateDb(event)).get();
@@ -531,7 +369,6 @@ public class MyListener implements EventListener {
 
                         }
                     }
-                }
             } catch (InterruptedException ignored) {
             } catch (Exception e) {
                 e.printStackTrace();
@@ -798,7 +635,7 @@ public class MyListener implements EventListener {
     
 
     //prints the help message
-    private void PrintHelp(MessageChannel channel, Member member, Guild guild,boolean admin,boolean mod) {
+    private void PrintHelp(MessageChannel channel, Member member, Guild guild, boolean admin) {
         ResourceBundle output = ResourceBundle.getBundle("messages");
         EmbedBuilder helpMsg = new EmbedBuilder();
         helpMsg.setColor(Color.GREEN);
@@ -815,22 +652,9 @@ public class MyListener implements EventListener {
 
             helpMsg.addField("admin", output.getString("help-def-admin"), false);
 
-            helpMsg.addField("mod", output.getString("help-def-mod"), false);
-
             helpMsg.addField("roles", output.getString("help-def-roles"), false);
 
             helpMsg.addField("forgive", output.getString("help-def-forgive"), false);
-        }
-        if(member.isOwner() || mod){
-            if (guildIsSupport(guild)) {
-                helpMsg.addBlankField(false);
-
-                helpMsg.addField("SUPPORT commands:", "", false);
-
-                helpMsg.addField("console", output.getString("help-def-console"), false);
-
-                helpMsg.addField("listen", output.getString("help-def-listen"), false);
-            }
         }
 
         helpMsg.addField("",output.getString("help-last"),false);
@@ -855,11 +679,6 @@ public class MyListener implements EventListener {
                 Logger.logger.logError("VendorError: " + ex.getErrorCode());
             }
         return true;
-    }
-
-    private boolean guildIdIsValid(long guildId, Message message) {
-        JDA jda = message.getJDA();
-        return jda.getGuildById(guildId) != null;
     }
 
     private void updateServerCount(JDA api) {
@@ -904,233 +723,6 @@ public class MyListener implements EventListener {
             }
         } else {
             channel.sendMessage(text).queue();
-        }
-    }
-
-    private boolean guildIsSupport(Guild guild) {
-        return guild.getIdLong() == Long.parseLong(System.getenv("SUPPORT_GUILD_ID"));
-    }
-
-    @SuppressWarnings("Duplicates")
-    public void onConsoleMessageReceived(MessageReceivedEvent event) {
-        ResourceBundle output = ResourceBundle.getBundle("messages");
-
-        Guild remote = event.getGuild();
-        //get channel to send
-        MessageChannel channel = event.getChannel();
-        //get message
-        Message message = event.getMessage();
-        //get id
-        long messageId = message.getIdLong();
-        //get bind guild
-        Guild guild = event.getJDA().getGuildById(Global.getGbl().getMapChannel().get(channel.getIdLong()).getGuildId());
-
-        String args[] = message.getContent().split(" +");
-
-        try {
-            switch (args[0].equals("") ? args[1] : args[0]) {
-                case "end":
-                    Logger.logger.logMessage("end", message);
-                    LogLinker act = Global.getGbl().getMapChannel().get(channel.getIdLong());
-                    act.delete();
-                    channel.sendMessage(output.getString("console-stopped")).queue();
-                    Logger.logger.logReponse("console daemon stopped in channel:" + channel.getName(), guild, messageId);
-                    break;
-                case "mod":
-                    //if member is allowed
-                    if (args.length > 1) {
-                        //get mentioned roles
-                        List<Role> mentions = message.getMentionedRoles();
-                        Role role = null;
-                        if (mentions.size() > 1)
-                            role = mentions.get(0);
-
-
-                        //test on second arg
-                        switch (args[1]) {
-                            case "add":
-                                //if there is a mentioned role
-                                if (role == null)
-                                    if (args.length > 2) {
-                                        try {
-                                            role = remote.getRoleById(args[2]);
-                                        } catch (NumberFormatException ex) {
-                                            channel.sendMessage(output.getString("error-roleId-invalid")).queue();
-                                        }
-                                    } else {
-                                        channel.sendMessage(output.getString("error-missing-param")).queue();
-                                    }
-
-                                Logger.logger.logRemoteMsg("mod add", message, guild);
-                                if (role != null) {
-                                    //call class method to add roles
-                                    final Role rl = role;
-                                    String msg = dbExecutor.submit(() ->
-                                            dbInterface.addRemoteMod(rl, guild, output, messageId, remote)
-                                    ).get();
-                                    channel.sendMessage(msg).queue();
-                                }
-                                break;
-                            case "remove":
-                                //if there is a mentioned user
-                                if (role == null)
-                                    if (args.length > 2) {
-                                        try {
-                                            role = remote.getRoleById(args[2]);
-                                        } catch (NumberFormatException ex) {
-                                            channel.sendMessage(output.getString("error-roleId-invalid")).queue();
-                                        }
-                                    } else {
-                                        channel.sendMessage(output.getString("error-missing-param")).queue();
-                                    }
-                                Logger.logger.logRemoteMsg("mod remove", message, guild);
-                                if (role != null) {
-                                    //call class method to remove roles
-                                    final Role rl = role;
-                                    String msg = dbExecutor.submit(()->
-                                            dbInterface.removeRemoteMod(rl, guild, output, messageId, remote)
-                                    ).get();
-                                    channel.sendMessage(msg).queue();
-                                }
-                                break;
-                            case "clear": {
-                                Logger.logger.logRemoteMsg("mod clear", message, guild);
-                                String msg = dbExecutor.submit(()->
-                                        dbInterface.clearRemoteMod(guild, output, messageId, remote)
-                                ).get();
-                                channel.sendMessage(msg).queue();
-                                Logger.logger.logRemoteRep("mods cleared", guild, messageId, remote);
-                                break;
-                            }
-                            case "list": {
-                                //list all mods
-                                Logger.logger.logRemoteMsg("mod list", message, guild);
-                                String msg = dbExecutor.submit(()->
-                                        dbInterface.listRemoteMod(guild, output, messageId, remote)
-                                ).get();
-                                SendMsg(channel,msg);
-                                break;
-                            }
-                        }
-
-                    }
-                    break;
-                case "admin":
-                    //if member is allowed
-                    if (args.length > 1) {
-                        //get mentioned roles
-                        List<Role> mentions = message.getMentionedRoles();
-                        Role role = null;
-                        if (mentions.size() > 1)
-                            role = mentions.get(0);
-
-
-                        //test on second arg
-                        switch (args[1]) {
-                            case "add":
-                                //if there is a mentioned role
-                                if (role == null)
-                                    if (args.length > 2) {
-                                        try {
-                                            role = remote.getRoleById(args[2]);
-                                        } catch (NumberFormatException ex) {
-                                            channel.sendMessage(output.getString("error-roleId-invalid")).queue();
-                                        }
-                                    } else {
-                                        channel.sendMessage(output.getString("error-missing-param")).queue();
-                                    }
-
-                                Logger.logger.logRemoteMsg("mod add", message, guild);
-                                if (role != null) {
-                                    //call class method to add roles
-                                    final Role rl = role;
-                                    String msg = dbExecutor.submit(() ->
-                                            dbInterface.addRemoteAdmin(rl, guild, output, messageId, remote)
-                                    ).get();
-                                    channel.sendMessage(msg).queue();
-                                }
-                                break;
-                            case "remove":
-                                //if there is a mentioned user
-                                if (role == null)
-                                    if (args.length > 2) {
-                                        try {
-                                            role = remote.getRoleById(args[2]);
-                                        } catch (NumberFormatException ex) {
-                                            channel.sendMessage(output.getString("error-roleId-invalid")).queue();
-                                        }
-                                    } else {
-                                        channel.sendMessage(output.getString("error-missing-param")).queue();
-                                    }
-                                Logger.logger.logRemoteMsg("mod remove", message, guild);
-                                if (role != null) {
-                                    //call class method to remove roles
-                                    final Role rl = role;
-                                    String msg = dbExecutor.submit(() ->
-                                            dbInterface.removeRemoteAdmin(rl, guild, output, messageId, remote)
-                                    ).get();
-                                    channel.sendMessage(msg).queue();
-                                }
-                                break;
-                            case "clear": {
-                                Logger.logger.logRemoteMsg("mod clear", message, guild);
-                                String msg = dbExecutor.submit(() ->
-                                        dbInterface.clearRemoteAdmin(guild, output, messageId, remote)
-                                ).get();
-                                channel.sendMessage(msg).queue();
-                                Logger.logger.logRemoteRep("mods cleared", guild, messageId, remote);
-                                break;
-                            }
-                            case "auto": {
-                                Logger.logger.logRemoteMsg("mod auto", message, guild);
-                                dbExecutor.submit(()->dbInterface.autoRole(guild)).get();
-                                channel.sendMessage(output.getString("mod-auto")).queue();
-                                Logger.logger.logRemoteRep("mods updated", guild, messageId, remote);
-                            }
-                            case "list":{
-                                //list all mods
-                                Logger.logger.logRemoteMsg("mod list", message, guild);
-                                String msg = dbExecutor.submit(() ->
-                                        dbInterface.listRemoteAdmin(guild, output, messageId, remote)
-                                ).get();
-                                SendMsg(channel, msg);
-                                break;
-                            }
-
-                        }
-
-                    }
-                    break;
-                case "roles":
-                    channel.sendTyping().queue();
-                    //if member is allowed
-                    Logger.logger.logMessage("roles", message);
-                    StringBuilder ret = new StringBuilder();
-                    ret.append(output.getString("roles-head")).append("\n");
-                    for (Role r : remote.getRoles()) {
-                        if (!r.isPublicRole())
-                            ret.append(r.getName()).append(" [").append(r.getId()).append("]\n");
-                    }
-                    SendMsg(channel, ret.toString());
-                    Logger.logger.logReponse("role list shown", guild, messageId);
-                    break;
-                case "whoami":
-                    Logger.logger.logMessage("whoami", message);
-                    EmbedBuilder eb = new EmbedBuilder();
-                    eb.setAuthor(guild.getName(), null, guild.getIconUrl());
-                    eb.setDescription(guild.getId());
-                    channel.sendMessage(eb.build()).queue();
-                    Logger.logger.logReponse("info shown", remote, messageId);
-                    break;
-                case "help":
-                    Logger.logger.logMessage("console help", message);
-                    channel.sendMessage(output.getString("help-console-def")).queue();
-                    Logger.logger.logReponse("help shown", remote, messageId);
-                    break;
-            }
-        } catch (InterruptedException ignored) {
-        } catch (ExecutionException e) {
-            e.printStackTrace();
         }
     }
 
