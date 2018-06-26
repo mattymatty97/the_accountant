@@ -34,6 +34,7 @@ import java.util.Queue;
 import java.util.concurrent.*;
 import java.util.concurrent.locks.Condition;
 import java.util.concurrent.locks.ReentrantLock;
+import java.util.stream.Collectors;
 
 import static org.fusesource.jansi.Ansi.ansi;
 
@@ -469,7 +470,7 @@ public class MyListener implements EventListener {
                 List<Role> roles = event.getRoles();
 
                 if(!restoring.contains(event.getUser()))
-                    dbExecutor.submit(()-> dbInterface.memorizeRole(guild, user, roles)).get();
+                    dbExecutor.execute(()-> dbInterface.memorizeRole(guild, user, roles));
             } else {
                 event.getJDA().shutdown();
                 Reconnector.reconnect();
@@ -498,7 +499,7 @@ public class MyListener implements EventListener {
                 List<Role> roles = event.getRoles();
 
                 if(!restoring.contains(event.getUser()))
-                    dbExecutor.submit(()->dbInterface.removeRole(guild, user, roles)).get();
+                    dbExecutor.execute(()->dbInterface.removeRole(guild, user, roles));
             } else {
                 event.getJDA().shutdown();
                 Reconnector.reconnect();
@@ -525,7 +526,7 @@ public class MyListener implements EventListener {
 
                 String nick = member.getEffectiveName();
                 if (!restoring.contains(user)) {
-                    dbExecutor.submit(() -> dbInterface.updateNick(guild, user, nick)).get();
+                    dbExecutor.execute(() -> dbInterface.updateNick(guild, user, nick));
                 }
             } else {
                 event.getJDA().shutdown();
@@ -544,14 +545,13 @@ public class MyListener implements EventListener {
 
                 String oldUname = event.getOldName();
                 if (!restoring.contains(user)) {
-                    dbExecutor.submit(() -> dbInterface.updateUname(user, oldUname)).get();
+                    dbExecutor.execute(() -> dbInterface.updateUname(user, oldUname));
                 }
             } else {
                 event.getJDA().shutdown();
                 Reconnector.reconnect();
             }
-        } catch (InterruptedException ignored) {
-        } catch (Exception e) {
+        }catch (Exception e) {
             e.printStackTrace();
         }
     }
@@ -589,9 +589,20 @@ public class MyListener implements EventListener {
                         float delay = dbExecutor.submit(() -> dbInterface.getDelay(guild)).get();
                         Thread.sleep(Math.round(delay * 1000));
                         try {
+                            final long maxHeight = guild.getSelfMember().getRoles().stream().mapToLong(Role::getPosition).max().orElse(0);
+                            List<Role> newList = roles.stream().filter(r->{
+                                if(r.isManaged())
+                                    return false;
+                                if (r.isPublicRole())
+                                    return false;
+                                if(r.getPosition()>=maxHeight)
+                                    return false;
+                                return true;
+                            }).collect(Collectors.toList());
 
+                            newList.addAll(member.getRoles().stream().filter(r->r.getPosition()>=maxHeight).collect(Collectors.toList()));
 
-                            gc.modifyMemberRoles(member, roles, Collections.emptyList()).reason("Role restore").queue();
+                            gc.modifyMemberRoles(member, roles).reason("Role restore").queue();
                         } catch (Exception ignored) {
                         }
                     } else
