@@ -666,13 +666,12 @@ public class DbInterface {
             if(ctn>0) {
                 ctn=0;
                 stmt = roleRemoveStmt[1];
-                stmt.setString(1, LocalDateTime.now().plus(1, ChronoUnit.MINUTES).format(DateTimeFormatter.ISO_LOCAL_DATE_TIME));
-                stmt.setLong(2, guild.getIdLong());
-                stmt.setLong(3, user.getIdLong());
+                stmt.setLong(1, guild.getIdLong());
+                stmt.setLong(2, user.getIdLong());
 
                 for (Role role : roles) {
                     sql = partsql + role.getId();
-                    stmt.setLong(4, role.getIdLong());
+                    stmt.setLong(3, role.getIdLong());
                     ctn += stmt.executeUpdate();
                 }
                 if (ctn > 0)

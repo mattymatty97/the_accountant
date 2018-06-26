@@ -10,7 +10,7 @@ import java.util.Map;
 @SuppressWarnings("WeakerAccess")
 public class Global {
     public static final String version = "v2.12 - ac prj";
-    public static final String build = "4";
+    public static final String build = "5";
 
     private static Global gbl = new Global();
 
