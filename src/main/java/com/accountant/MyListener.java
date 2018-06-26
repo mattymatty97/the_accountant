@@ -393,8 +393,12 @@ public class MyListener implements EventListener {
                                     Logger.logger.logMessage("wbtest", message);
                                     //get mentioned roles
                                     TextChannel wbChannel = dbExecutor.submit(() -> dbInterface.getChannel(guild)).get();
-                                    wbChannel.sendMessage(output.getString("test-message")).queue();
-                                    channel.sendMessage(output.getString("test-message-sent").replace("[channel]", wbChannel.getAsMention())).queue();
+                                    try {
+                                        wbChannel.sendMessage(output.getString("test-message")).queue();
+                                        channel.sendMessage(output.getString("test-message-sent").replace("[channel]", wbChannel.getAsMention())).queue();
+                                    }catch (InsufficientPermissionException ex){
+                                        channel.sendMessage(output.getString("error-missing-permission").replace("[channel]", wbChannel.getAsMention()) +"\n"+ ex.getMessage()).queue();
+                                    }
                                     Logger.logger.logReponse("test message sent", guild, messageId);
                                     break;
                                 } else {
