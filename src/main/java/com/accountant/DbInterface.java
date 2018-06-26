@@ -36,6 +36,8 @@ public class DbInterface {
     private PreparedStatement chChannelStmt;
     private PreparedStatement gDelayStmt;
     private PreparedStatement chDelayStmt;
+    private PreparedStatement gPersStmt;
+    private PreparedStatement chPersStmt;
 
     private List<PreparedStatement> stmts = new ArrayList<>(29);
 
@@ -509,6 +511,23 @@ public class DbInterface {
         return delay;
     }
 
+    public int getPersistence(Guild guild) {
+        int persistence = 1;
+        PreparedStatement stmt = gPersStmt;
+        String sql = "SELECT persistence FROM guilds WHERE guildId=" + guild.getId();
+        try {
+            stmt.setLong(1, guild.getIdLong());
+            ResultSet rs = stmt.executeQuery();
+            if (rs.next()) {
+                persistence = rs.getInt(1);
+            }
+            rs.close();
+        } catch (SQLException ex) {
+            sqlError(sql, ex);
+        }
+        return persistence;
+    }
+
 
     public boolean guildIsInDb(Guild guild) {
         String sql = "";
@@ -808,6 +827,7 @@ public class DbInterface {
         String sql= "";
         try {
             int ctn = 0;
+            int persistence = getPersistence(guild);
             sql = "SELECT * FROM MemberRoles,MemberNick WHERE guildId=" + guild.getId() + " AND userId=" + user.getId() + " AND expireDate IS NULL";
             PreparedStatement stmt = saveUserStmt[0];
             stmt.setLong(1, guild.getIdLong());
@@ -815,16 +835,16 @@ public class DbInterface {
             stmt.setString(3, LocalDateTime.now().format(DateTimeFormatter.ISO_LOCAL_DATE_TIME));
             ResultSet rs = stmt.executeQuery();
             if(rs.next()) {
-                sql = "UPDATE MemberRoles SET expireDate=" + LocalDateTime.now().plus(1, ChronoUnit.DAYS).format(DateTimeFormatter.ISO_LOCAL_DATE_TIME) + " WHERE guildId=" + guild.getId() + " AND userId=" + user.getId() + " AND expireDate IS NULL";
+                sql = "UPDATE MemberRoles SET expireDate=" + LocalDateTime.now().plus(persistence, ChronoUnit.DAYS).format(DateTimeFormatter.ISO_LOCAL_DATE_TIME) + " WHERE guildId=" + guild.getId() + " AND userId=" + user.getId() + " AND expireDate IS NULL";
                 stmt = saveUserStmt[1];
-                stmt.setString(1, LocalDateTime.now().plus(1, ChronoUnit.DAYS).format(DateTimeFormatter.ISO_LOCAL_DATE_TIME));
+                stmt.setString(1, LocalDateTime.now().plus(persistence, ChronoUnit.DAYS).format(DateTimeFormatter.ISO_LOCAL_DATE_TIME));
                 stmt.setLong(2, guild.getIdLong());
                 stmt.setLong(3, user.getIdLong());
                 stmt.setString(4, LocalDateTime.now().format(DateTimeFormatter.ISO_LOCAL_DATE_TIME));
                 ctn += stmt.executeUpdate();
-                sql = "UPDATE MemberNick SET expireDate=" + LocalDateTime.now().plus(1, ChronoUnit.DAYS).format(DateTimeFormatter.ISO_LOCAL_DATE_TIME) + " WHERE guildId=" + guild.getId() + " AND userId=" + user.getId() + " AND expireDate IS NULL";
+                sql = "UPDATE MemberNick SET expireDate=" + LocalDateTime.now().plus(persistence, ChronoUnit.DAYS).format(DateTimeFormatter.ISO_LOCAL_DATE_TIME) + " WHERE guildId=" + guild.getId() + " AND userId=" + user.getId() + " AND expireDate IS NULL";
                 stmt = saveUserStmt[2];
-                stmt.setString(1, LocalDateTime.now().plus(1, ChronoUnit.DAYS).format(DateTimeFormatter.ISO_LOCAL_DATE_TIME));
+                stmt.setString(1, LocalDateTime.now().plus(persistence, ChronoUnit.DAYS).format(DateTimeFormatter.ISO_LOCAL_DATE_TIME));
                 stmt.setLong(2, guild.getIdLong());
                 stmt.setLong(3, user.getIdLong());
                 stmt.setString(4, LocalDateTime.now().format(DateTimeFormatter.ISO_LOCAL_DATE_TIME));
@@ -898,6 +918,8 @@ public class DbInterface {
                 stmts.add(this.chChannelStmt = conn.prepareStatement("UPDATE guilds SET channel=? WHERE guildId=?"));
                 stmts.add(this.gDelayStmt = conn.prepareStatement("SELECT delay FROM guilds WHERE guildId=? "));
                 stmts.add(this.chDelayStmt = conn.prepareStatement("UPDATE guilds SET delay=? WHERE guildId=?"));
+                stmts.add(this.gDelayStmt = conn.prepareStatement("SELECT persistence FROM guilds WHERE guildId=? "));
+                stmts.add(this.chDelayStmt = conn.prepareStatement("UPDATE guilds SET persistence=? WHERE guildId=?"));
                 this.conn = conn;
             } catch (SQLException ex) {
                 Logger.logger.logError("SQLError in SQL preparation");
