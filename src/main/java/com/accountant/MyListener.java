@@ -106,7 +106,7 @@ public class MyListener implements EventListener {
             }
             //get message
             Message message = ev.getMessage();
-            if (message.getContent().startsWith(System.getenv("BOT_PREFIX")))
+            if (message.getContentDisplay().startsWith(System.getenv("BOT_PREFIX")))
                 eventThreads.execute(() -> onMessageReceived((MessageReceivedEvent) event));
         }
         else if (event instanceof RoleDeleteEvent)
@@ -190,12 +190,12 @@ public class MyListener implements EventListener {
                 ).get();
 
 
-                    if (message.getContent().startsWith(System.getenv("BOT_PREFIX"))) {
+                    if (message.getContentDisplay().startsWith(System.getenv("BOT_PREFIX"))) {
                         if (!PermissionUtil.checkPermission(event.getTextChannel(), event.getGuild().getSelfMember(), Permission.MESSAGE_EMBED_LINKS)) {
                             channel.sendMessage("Error could not send embeds, pls change my permissions!").queue();
                             return;
                         }
-                        String args[] = message.getContent().split(" +");
+                        String args[] = message.getContentDisplay().split(" +");
                         String command = args[0].substring(System.getenv("BOT_PREFIX").length());
                         switch (command) {
     //------USER---------------------HELP--------------------------------------

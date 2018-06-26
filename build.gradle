@@ -8,7 +8,7 @@ group 'accountant'
 
 mainClassName = 'BOT'
 
-def jdaVersion = '3.3.1_308'
+def jdaVersion = '3.6.0_376'
 
 sourceCompatibility = 1.8
 
