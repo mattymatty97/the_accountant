@@ -982,8 +982,8 @@ public class DbInterface {
                 stmts.add(this.chChannelStmt = conn.prepareStatement("UPDATE guilds SET channel=? WHERE guildId=?"));
                 stmts.add(this.gDelayStmt = conn.prepareStatement("SELECT delay FROM guilds WHERE guildId=? "));
                 stmts.add(this.chDelayStmt = conn.prepareStatement("UPDATE guilds SET delay=? WHERE guildId=?"));
-                stmts.add(this.gDelayStmt = conn.prepareStatement("SELECT persistence FROM guilds WHERE guildId=? "));
-                stmts.add(this.chDelayStmt = conn.prepareStatement("UPDATE guilds SET persistence=? WHERE guildId=?"));
+                stmts.add(this.gPersStmt = conn.prepareStatement("SELECT persistence FROM guilds WHERE guildId=? "));
+                stmts.add(this.chPersStmt = conn.prepareStatement("UPDATE guilds SET persistence=? WHERE guildId=?"));
                 this.conn = conn;
             } catch (SQLException ex) {
                 Logger.logger.logError("SQLError in SQL preparation");
