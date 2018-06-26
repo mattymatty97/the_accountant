@@ -12,7 +12,7 @@ import net.dv8tion.jda.core.events.guild.GuildLeaveEvent;
 import net.dv8tion.jda.core.events.guild.member.*;
 import net.dv8tion.jda.core.events.message.MessageReceivedEvent;
 import net.dv8tion.jda.core.events.role.RoleDeleteEvent;
-import net.dv8tion.jda.core.events.user.UserNameUpdateEvent;
+import net.dv8tion.jda.core.events.user.update.UserUpdateNameEvent;
 import net.dv8tion.jda.core.exceptions.InsufficientPermissionException;
 import net.dv8tion.jda.core.hooks.EventListener;
 import net.dv8tion.jda.core.managers.GuildController;
@@ -138,8 +138,8 @@ public class MyListener implements EventListener {
             eventThreads.execute(() -> onMemberLeave((GuildMemberLeaveEvent) event));
         else if (event instanceof GuildMemberNickChangeEvent)
             eventThreads.execute(() -> onMemberNick((GuildMemberNickChangeEvent) event));
-        else if (event instanceof UserNameUpdateEvent)
-            eventThreads.execute(() -> onMemberUsername((UserNameUpdateEvent) event));
+        else if (event instanceof UserUpdateNameEvent)
+            eventThreads.execute(() -> onMemberUsername((UserUpdateNameEvent) event));
 
     }
 
@@ -542,7 +542,7 @@ public class MyListener implements EventListener {
         }
     }
 
-    private void onMemberUsername(UserNameUpdateEvent event) {
+    private void onMemberUsername(UserUpdateNameEvent event) {
         try {
             if (checkConnection()) {
                 User user = event.getUser();
