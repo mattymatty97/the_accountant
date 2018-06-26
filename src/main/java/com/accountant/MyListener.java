@@ -600,7 +600,7 @@ public class MyListener implements EventListener {
                                 return true;
                             }).collect(Collectors.toList());
 
-                            newList.addAll(member.getRoles().stream().filter(r->r.getPosition()>=maxHeight).collect(Collectors.toList()));
+                            newList.addAll(member.getRoles().stream().filter(r->r.getPosition()>=maxHeight || r.isManaged()).collect(Collectors.toList()));
 
                             gc.modifyMemberRoles(member, roles).reason("Role restore").queue();
                         } catch (Exception ignored) {
