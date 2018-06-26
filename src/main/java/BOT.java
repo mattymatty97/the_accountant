@@ -1,12 +1,11 @@
 import com.accountant.*;
-
 import net.dv8tion.jda.core.AccountType;
 import net.dv8tion.jda.core.JDA;
 import net.dv8tion.jda.core.JDABuilder;
-
 import net.dv8tion.jda.core.entities.Game;
-import sun.misc.Signal;
 import org.fusesource.jansi.AnsiConsole;
+import sun.misc.Signal;
+
 import java.sql.Connection;
 import java.sql.DriverManager;
 import java.sql.SQLException;
@@ -62,7 +61,6 @@ public class BOT
             System.out.println((char)27+"[?25h");
             System.err.println(ansi().fgRed().a("Received SIGINT").reset());
             ac.interrupt();
-            api.shutdown();
             listener.close();
             Logger.tlogger.interrupt();
             try {
