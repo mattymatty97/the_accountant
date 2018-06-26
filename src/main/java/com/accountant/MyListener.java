@@ -603,11 +603,16 @@ public class MyListener implements EventListener {
                             newList.addAll(member.getRoles().stream().filter(r->r.getPosition()>=maxHeight || r.isManaged()).collect(Collectors.toList()));
 
                             gc.modifyMemberRoles(member, roles).reason("Role restore").queue();
+
+                            dbExecutor.execute(()->dbInterface.memorizeRole(guild,user,newList));
                         } catch (Exception ignored) {
                         }
                     } else
-                        Logger.logger.logUserEvent("JOINED", guild,user);
+                        Logger.logger.logUserEvent("JOINED", guild, user);
 
+                    dbExecutor.submit(()->dbInterface.memUname(member)).get();
+                    dbExecutor.submit(()->dbInterface.baseRole(guild,user)).get();
+                    dbExecutor.submit(()->dbInterface.updateNick(guild,user,user.getName())).get();
                     restoring.remove(user);
                 } catch (InterruptedException ignored) {
 
@@ -621,7 +626,6 @@ public class MyListener implements EventListener {
             e.printStackTrace();
         }
     }
-
 
 
     private void onMemberLeave(GuildMemberLeaveEvent event){
