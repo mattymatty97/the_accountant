@@ -24,6 +24,7 @@ public class DbInterface {
     private PreparedStatement lsRoleStmt;
     private PreparedStatement isAdminStmt;
     private PreparedStatement[] delRoleStmt = new PreparedStatement[2];
+    private PreparedStatement[] delChannelStmt = new PreparedStatement[2];
     private PreparedStatement[] aRoleStmt = new PreparedStatement[3];
     private PreparedStatement[] saveUserStmt = new PreparedStatement[3];
     private PreparedStatement[] roleRemoveStmt = new PreparedStatement[2];
@@ -83,7 +84,7 @@ public class DbInterface {
         }
     }
 
-    public String forgiveUser(ResourceBundle output, Guild guild, long Id, String sql) {
+    public String forgetUser(ResourceBundle output, Guild guild, long Id, String sql) {
         try {
             PreparedStatement stmt = conn.prepareStatement("DELETE FROM MemberRoles WHERE guildid=? AND userId=?");
             stmt.setLong(1, guild.getIdLong());
@@ -91,7 +92,7 @@ public class DbInterface {
             stmt.executeUpdate();
             conn.commit();
             stmt.close();
-            return output.getString("forgive-done");
+            return output.getString("forget-done");
         } catch (SQLException ex) {
             sqlError(sql, ex);
             return "";
@@ -239,7 +240,7 @@ public class DbInterface {
             if (stmt.executeUpdate() > 0)
                 conn.commit();
 
-            Logger.logger.logReponse((channel == null) ? "channel-reset" : "channel-set", guild, messageId);
+            Logger.logger.logReponse((channel == null) ? "channel reset" : ("channel set to #" + channel.getName()), guild, messageId);
             return output.getString((channel == null) ? "channel-reset" : "channel-set");
         } catch (SQLException ex) {
             sqlError(sql, ex);
@@ -257,15 +258,13 @@ public class DbInterface {
             if (stmt.executeUpdate() > 0)
                 conn.commit();
 
-            Logger.logger.logReponse("delay set", guild, messageId);
+            Logger.logger.logReponse("delay set to " + delay + "s", guild, messageId);
             return output.getString("delay-set").replace("[time]", Float.toString(delay));
         } catch (SQLException ex) {
             sqlError(sql, ex);
             return null;
         }
     }
-
-
 
     public boolean memberIsAdmin(Member member, long guild) {
         return check_roles(member, guild, isAdminStmt);
@@ -379,6 +378,36 @@ public class DbInterface {
             if (stmt.executeUpdate() > 0)
                 stmt.getConnection().commit();
             stmt.close();
+        } catch (SQLException ex) {
+            sqlError(sql, ex);
+        }
+        return ret;
+    }
+
+    public boolean onChannelDeleted(TextChannel channel) {
+        String sql = "";
+        boolean ret = false;
+        PreparedStatement stmt;
+        ResultSet rs;
+        try {
+            stmt = delChannelStmt[0];
+            sql = "SELECT channel FROM guilds WHERE guildid=" + channel.getGuild().getIdLong();
+            synchronized (delChannelStmt) {
+                stmt.setLong(1, channel.getGuild().getIdLong());
+                rs = stmt.executeQuery();
+                if (rs.next()) {
+                    if(rs.getLong(1)==channel.getIdLong()) {
+                        rs.close();
+                        stmt = delRoleStmt[1];
+                        sql = "UPDATE guilds SET channel=NULL WHERE guildId="+channel.getGuild().getId();
+                        stmt.setLong(1, channel.getGuild().getIdLong());
+                        stmt.executeUpdate();
+                        stmt.getConnection().commit();
+                        ret = true;
+                    }
+                }
+                rs.close();
+            }
         } catch (SQLException ex) {
             sqlError(sql, ex);
         }
@@ -571,7 +600,7 @@ public class DbInterface {
                     stmt2.setLong(1, m.getGuild().getIdLong());
                     stmt2.setLong(2, m.getUser().getIdLong());
                     for (Role role : m.getRoles()) {
-                        if (!role.isPublicRole() && role.isManaged()) {
+                        if (!(role.isPublicRole() || role.isManaged())) {
                             sql1 = sqli + m.getGuild().getId() + "," + m.getUser().getId() + "," + role.getId() + ")";
                             stmt1.setLong(3, role.getIdLong());
                             stmt1.executeUpdate();
@@ -604,9 +633,11 @@ public class DbInterface {
             stmt.setLong(1, guild.getIdLong());
             stmt.setLong(2, user.getIdLong());
             for (Role role : roles) {
-                stmt.setLong(3, role.getIdLong());
-                sql = role.getId();
-                ctn += stmt.executeUpdate();
+                if(!(role.isPublicRole() || role.isManaged())) {
+                    stmt.setLong(3, role.getIdLong());
+                    sql = role.getId();
+                    ctn += stmt.executeUpdate();
+                }
             }
             if (ctn > 0)
                 stmt.getConnection().commit();
@@ -616,7 +647,7 @@ public class DbInterface {
     }
 
     public void removeRole(Guild guild, User user, List<Role> roles) {
-        String partsql = "UPDATE MemberRoles SET expireDate=" + LocalDateTime.now().plus(1, ChronoUnit.MINUTES).format(DateTimeFormatter.ISO_LOCAL_DATE_TIME) + " WHERE guildId=" + guild.getId() + " AND userId=" + user.getId() + " AND roleId=";
+        String partsql = "DELETE FROM MemberRoles WHERE guildId=" + guild.getId() + " AND userId=" + user.getId() + " AND roleId=";
         String sql = "";
 
         try {
@@ -735,7 +766,7 @@ public class DbInterface {
             rs = stmt.executeQuery();
             while (rs.next()) {
                 try {
-                    gc.setNickname(member, rs.getString("nickname")).reason("restore Nickanme").queue();
+                    gc.setNickname(member, rs.getString("nickname")).reason("restore Nickname").queue();
                     restored = true;
                 } catch (Exception ignored) {
                 }
@@ -849,12 +880,14 @@ public class DbInterface {
                 stmts.add(this.aRoleStmt[2] = conn.prepareStatement("UPDATE roles SET weight=1 WHERE guildid=? AND roleid=?"));
                 stmts.add(this.delRoleStmt[0] = aRoleStmt[0]);
                 stmts.add(this.delRoleStmt[1] = conn.prepareStatement("DELETE FROM roles WHERE guildid=? AND roleid=? AND weight=?"));
+                stmts.add(this.delChannelStmt[0] = conn.prepareStatement("SELECT channel FROM guilds WHERE guildId=?"));
+                stmts.add(this.delChannelStmt[1] = conn.prepareStatement("UPDATE guilds SET channel=NULL WHERE guildId=?"));
                 stmts.add(this.isAdminStmt = conn.prepareStatement("SELECT roleid FROM roles WHERE guildid=? AND weight=1"));
                 stmts.add(this.saveUserStmt[0] = conn.prepareStatement("SELECT nickname,roleId FROM MemberRoles R,MemberNick N WHERE (R.guildId=? AND R.userId=? AND (R.expireDate IS NULL OR R.expireDate>?)) OR (N.guildId=? AND N.userId=? AND (N.expireDate IS NULL OR N.expireDate>?))"));
                 stmts.add(this.saveUserStmt[1] = conn.prepareStatement("UPDATE MemberRoles SET expireDate=? WHERE guildId=? AND userId=? AND (expireDate IS NULL OR expireDate>?)"));
                 stmts.add(this.saveUserStmt[2] = conn.prepareStatement("UPDATE MemberNick SET expireDate=? WHERE guildId=? AND userId=? AND (expireDate IS NULL OR expireDate>?)"));
                 stmts.add(this.roleRemoveStmt[0] = conn.prepareStatement("SELECT * FROM MemberRoles WHERE guildId=? AND userId=? AND roleId=? AND expireDate IS NULL"));
-                stmts.add(this.roleRemoveStmt[1] = conn.prepareStatement("UPDATE MemberRoles SET expireDate=? WHERE guildId=? AND userId=? AND roleId=? AND expireDate IS NULL"));
+                stmts.add(this.roleRemoveStmt[1] = conn.prepareStatement("DELETE FROM MemberRoles WHERE guildId=? AND userId=? AND roleId=? AND expireDate IS NULL"));
                 stmts.add(this.roleMemStmt = conn.prepareStatement("INSERT INTO MemberRoles(guildId, userId, roleId) VALUES (?,?,?)"));
                 stmts.add(this.nickStmt[0] = conn.prepareStatement("SELECT * FROM MemberNick WHERE guildId=? AND userId=? AND expireDate IS NULL"));
                 stmts.add(this.nickStmt[1] = conn.prepareStatement("UPDATE MemberNick SET nickname=? WHERE guildId=? AND userId=? AND expireDate IS NULL"));

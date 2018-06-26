@@ -6,6 +6,7 @@ import net.dv8tion.jda.core.Permission;
 import net.dv8tion.jda.core.entities.*;
 import net.dv8tion.jda.core.events.Event;
 import net.dv8tion.jda.core.events.ReadyEvent;
+import net.dv8tion.jda.core.events.channel.text.TextChannelDeleteEvent;
 import net.dv8tion.jda.core.events.guild.GuildJoinEvent;
 import net.dv8tion.jda.core.events.guild.GuildLeaveEvent;
 import net.dv8tion.jda.core.events.guild.member.*;
@@ -109,6 +110,9 @@ public class MyListener implements EventListener {
         }
         else if (event instanceof RoleDeleteEvent)
             eventThreads.execute(() -> onRoleDelete((RoleDeleteEvent) event));
+
+        else if (event instanceof TextChannelDeleteEvent)
+            eventThreads.execute(()-> onChannelDelete((TextChannelDeleteEvent)event));
 
         else if (event instanceof GuildJoinEvent)
             eventThreads.execute(() -> onGuildJoin((GuildJoinEvent) event));
@@ -311,7 +315,7 @@ public class MyListener implements EventListener {
                                     Logger.logger.logReponse("user not allowed", guild, messageId);
                                 }
                                 break;
-                            //------ADMIN---------------ROLES----------------------------------------
+    //------ADMIN---------------ROLES----------------------------------------
                             case "roles":
                                 channel.sendTyping().queue();
                                 //if member is allowed
@@ -332,7 +336,7 @@ public class MyListener implements EventListener {
                                 }
                                 break;
     //------ADMIN---------------FORGIVE---------------------------------------
-                            case "forgive":
+                            case "forget":
                                 //if member is allowed
                                 if (member.isOwner() || admin) {
                                     //if there are other arguments
@@ -344,22 +348,22 @@ public class MyListener implements EventListener {
                                             long id = Long.parseLong(args[1]);
                                             String sql = "";
                                             if(guild.getMemberById(id)==null) {
-                                                String ret = dbExecutor.submit(()->dbInterface.forgiveUser(output, guild, id, sql)).get();
+                                                String ret = dbExecutor.submit(()->dbInterface.forgetUser(output, guild, id, sql)).get();
                                                 channel.sendMessage(ret).queue();
                                             }else
-                                                channel.sendMessage(output.getString("error-forgive-mutual")).queue();
+                                                channel.sendMessage(output.getString("error-forget-mutual")).queue();
                                         }catch (NumberFormatException ex){
                                             channel.sendMessage(output.getString("error-non-id")).queue();
                                         }
                                     }
                                     break;
                                 } else {
-                                    Logger.logger.logMessage("forgive", message);
+                                    Logger.logger.logMessage("forget", message);
                                     channel.sendMessage(output.getString("error-user-permission")).queue();
                                     Logger.logger.logReponse("user not allowed", guild, messageId);
                                 }
                                 break;
-                            //------ADMIN--------------CHANNEL-----------------------------------------
+    //------ADMIN--------------CHANNEL-----------------------------------------
                             case "wbchannel":
                                 if (member.isOwner() || admin) {
                                     //if there are other arguments
@@ -398,7 +402,7 @@ public class MyListener implements EventListener {
                                     Logger.logger.logReponse("user not allowed", guild, messageId);
                                 }
                                 break;
-                            //------ADMIN--------------DELAY---------------------------------------------
+    //------ADMIN--------------DELAY---------------------------------------------
                             case "delay":
                                 //if member is allowed
                                 if (member.isOwner() || admin) {
@@ -408,6 +412,8 @@ public class MyListener implements EventListener {
                                     if (args.length > 1) {
                                         try {
                                             float delay = Float.parseFloat(args[1]);
+                                            if(delay<0)
+                                                throw new NumberFormatException("Negative values not allowed");
                                             String ret = dbExecutor.submit(() -> dbInterface.changeDelay(guild, output, delay, messageId)).get();
                                             channel.sendMessage(ret).queue();
                                         } catch (NumberFormatException ex) {
@@ -421,7 +427,7 @@ public class MyListener implements EventListener {
                                     Logger.logger.logReponse("user not allowed", guild, messageId);
                                 }
                                 break;
-                            //------OWNER--------------RELOAD--------------------------------------------
+    //------OWNER--------------RELOAD--------------------------------------------
                             default:
                                 if (member.getUser().getIdLong() == Long.parseLong(System.getenv("OWNER_ID"))) {
                                     if(command.equals("reload")){
@@ -462,7 +468,8 @@ public class MyListener implements EventListener {
 
                 List<Role> roles = event.getRoles();
 
-                dbExecutor.submit(()-> dbInterface.memorizeRole(guild, user, roles)).get();
+                if(!restoring.contains(event.getUser()))
+                    dbExecutor.submit(()-> dbInterface.memorizeRole(guild, user, roles)).get();
             } else {
                 event.getJDA().shutdown();
                 Reconnector.reconnect();
@@ -490,7 +497,8 @@ public class MyListener implements EventListener {
 
                 List<Role> roles = event.getRoles();
 
-                dbExecutor.submit(()->dbInterface.removeRole(guild, user, roles)).get();
+                if(!restoring.contains(event.getUser()))
+                    dbExecutor.submit(()->dbInterface.removeRole(guild, user, roles)).get();
             } else {
                 event.getJDA().shutdown();
                 Reconnector.reconnect();
@@ -581,6 +589,8 @@ public class MyListener implements EventListener {
                         float delay = dbExecutor.submit(() -> dbInterface.getDelay(guild)).get();
                         Thread.sleep(Math.round(delay * 1000));
                         try {
+
+
                             gc.modifyMemberRoles(member, roles, Collections.emptyList()).reason("Role restore").queue();
                         } catch (Exception ignored) {
                         }
@@ -640,12 +650,42 @@ public class MyListener implements EventListener {
                     try {
                         TextChannel channel = dbExecutor.submit(() -> dbInterface.getChannel(event.getGuild())).get();
                         channel.sendMessage(output.getString("event-role-deleted")).queue();
-                        channel.sendMessage(output.getString("event-role-deleted-2")).queue();
+                        channel.sendMessage(output.getString("event-auto-message")).queue();
                     } catch (InsufficientPermissionException ex) {
                         event.getGuild().getOwner().getUser().openPrivateChannel().queue((PrivateChannel channel) ->
                         {
                             channel.sendMessage(output.getString("event-role-deleted")).queue();
-                            channel.sendMessage(output.getString("event-role-deleted-2")).queue();
+                            channel.sendMessage(output.getString("event-auto-message")).queue();
+                        });
+                    }
+
+                }
+            } else {
+                event.getJDA().shutdown();
+                Reconnector.reconnect();
+            }
+        }catch (InterruptedException ignored){}
+        catch (Exception e){
+            e.printStackTrace();
+        }
+    }
+
+    private void onChannelDelete(TextChannelDeleteEvent event){
+        ResourceBundle output;
+        try {
+            if (checkConnection()) {
+                output = ResourceBundle.getBundle("messages");
+                if (dbExecutor.submit(() -> dbInterface.onChannelDeleted(event.getChannel())).get()) {
+                    Logger.logger.logEvent("channel deleted in guild: ", event.getGuild());
+                    try {
+                        TextChannel channel = dbExecutor.submit(() -> dbInterface.getChannel(event.getGuild())).get();
+                        channel.sendMessage(output.getString("event-channel-deleted")).queue();
+                        channel.sendMessage(output.getString("event-auto-message")).queue();
+                    } catch (InsufficientPermissionException ex) {
+                        event.getGuild().getOwner().getUser().openPrivateChannel().queue((PrivateChannel channel) ->
+                        {
+                            channel.sendMessage(output.getString("event-channel-deleted")).queue();
+                            channel.sendMessage(output.getString("event-auto-message")).queue();
                         });
                     }
 
@@ -713,11 +753,13 @@ public class MyListener implements EventListener {
 
             helpMsg.addField("roles", output.getString("help-def-roles"), false);
 
-            helpMsg.addField("forgive", output.getString("help-def-forgive"), false);
+            helpMsg.addField("forget", output.getString("help-def-forget"), false);
 
             helpMsg.addField("wbchannel", output.getString("help-def-channel"), false);
 
             helpMsg.addField("wbtest", output.getString("help-def-channel-test"), false);
+
+            helpMsg.addField("delay", output.getString("help-def-delay"), false);
         }
 
         helpMsg.addField("",output.getString("help-last"),false);
