@@ -46,7 +46,7 @@ public class MyListener implements EventListener {
     private static ExecutorService eventThreads = Executors.newCachedThreadPool(new MyThreadFactory());
     private Set<User> restoring = new HashSet<>();
 
-    private static class MyThreadFactory implements ThreadFactory{
+    private static class MyThreadFactory implements ThreadFactory {
         private final Queue<Integer> tQueue = new PriorityQueue<Integer>(Comparator.reverseOrder()) {
             @Override
             public synchronized boolean add(Integer e) {
@@ -58,7 +58,7 @@ public class MyListener implements EventListener {
                 return super.poll();
             }
         };
-        private int ctn=0;
+        private int ctn = 0;
 
         @Override
         public Thread newThread(Runnable r) {
@@ -74,7 +74,7 @@ public class MyListener implements EventListener {
             Thread b = new Thread(() -> {
                 try {
                     r.run();
-                }catch (Exception ex){
+                } catch (Exception ex) {
                     tQueue.add(Integer.parseInt(Thread.currentThread().getName().replace("Event Thread: ", "")));
                     throw ex;
                 }
@@ -85,11 +85,10 @@ public class MyListener implements EventListener {
         }
     }
 
-    static PausableSingleThreadExecutor dbExecutor = new PausableSingleThreadExecutor(a->new Thread(a,"DB Thread"));
+    static PausableSingleThreadExecutor dbExecutor = new PausableSingleThreadExecutor(a -> new Thread(a, "DB Thread"));
 
     @Override
-    public void onEvent(Event event)
-    {
+    public void onEvent(Event event) {
         if (event instanceof ReadyEvent)
             onReady((ReadyEvent) event);
         else if (event instanceof MessageReceivedEvent) {
@@ -100,20 +99,15 @@ public class MyListener implements EventListener {
             //if i cant write
             if (!PermissionUtil.checkPermission(ev.getTextChannel(), ev.getGuild().getSelfMember(), Permission.MESSAGE_WRITE))
                 return;
-            if (!PermissionUtil.checkPermission(ev.getTextChannel(), ev.getGuild().getSelfMember(), Permission.MESSAGE_EMBED_LINKS)) {
-                ev.getTextChannel().sendMessage("Missing permission EMBED_LINKS please fix").queue();
-                return;
-            }
             //get message
             Message message = ev.getMessage();
             if (message.getContentDisplay().startsWith(System.getenv("BOT_PREFIX")))
                 eventThreads.execute(() -> onMessageReceived((MessageReceivedEvent) event));
-        }
-        else if (event instanceof RoleDeleteEvent)
+        } else if (event instanceof RoleDeleteEvent)
             eventThreads.execute(() -> onRoleDelete((RoleDeleteEvent) event));
 
         else if (event instanceof TextChannelDeleteEvent)
-            eventThreads.execute(()-> onChannelDelete((TextChannelDeleteEvent)event));
+            eventThreads.execute(() -> onChannelDelete((TextChannelDeleteEvent) event));
 
         else if (event instanceof GuildJoinEvent)
             eventThreads.execute(() -> onGuildJoin((GuildJoinEvent) event));
@@ -132,9 +126,9 @@ public class MyListener implements EventListener {
                 restoring.add(((GuildMemberJoinEvent) event).getUser());
                 Thread.sleep(30);
                 eventThreads.execute(() -> onMemberJoin((GuildMemberJoinEvent) event));
-            }catch (InterruptedException ignored){}
-        }
-        else if (event instanceof GuildMemberLeaveEvent)
+            } catch (InterruptedException ignored) {
+            }
+        } else if (event instanceof GuildMemberLeaveEvent)
             eventThreads.execute(() -> onMemberLeave((GuildMemberLeaveEvent) event));
         else if (event instanceof GuildMemberNickChangeEvent)
             eventThreads.execute(() -> onMemberNick((GuildMemberNickChangeEvent) event));
@@ -148,8 +142,8 @@ public class MyListener implements EventListener {
         String sql = "";
         List<Guild> guilds = event.getJDA().getSelfUser().getMutualGuilds();
         try {
-            dbExecutor.submit(()->
-                dbInterface.cleanDb(sql, guilds)
+            dbExecutor.submit(() ->
+                    dbInterface.cleanDb(sql, guilds)
             ).get();
         } catch (InterruptedException ignored) {
         } catch (Exception e) {
@@ -161,7 +155,6 @@ public class MyListener implements EventListener {
     }
 
 
-
     @SuppressWarnings("Duplicates")
     private void onMessageReceived(MessageReceivedEvent event) {
         //locales generation (dynamic strings from file selectionable by language)
@@ -170,7 +163,7 @@ public class MyListener implements EventListener {
             Guild guild = event.getGuild();
 
             try {
-                dbExecutor.submit(()->
+                dbExecutor.submit(() ->
                         dbInterface.updateDatabase(guild, output)
                 ).get();
 
@@ -179,271 +172,267 @@ public class MyListener implements EventListener {
                 //get sender member
                 Member member = event.getMember();
                 //get channel to send
-                MessageChannel channel = event.getChannel();
+                TextChannel channel = (TextChannel)event.getChannel();
                 //get message
                 Message message = event.getMessage();
                 //get id
                 long messageId = message.getIdLong();
 
-                boolean admin = dbExecutor.submit(()->
+                boolean admin = dbExecutor.submit(() ->
                         dbInterface.memberIsAdmin(member, guild.getIdLong())
                 ).get();
+                if (!PermissionUtil.checkPermission(channel, guild.getSelfMember(), Permission.MESSAGE_EMBED_LINKS)) {
+                    channel.sendMessage("Missing permission EMBED_LINKS please fix").queue();
+                    return;
+                }
+                String args[] = message.getContentDisplay().split(" +");
+                String command = args[0].substring(System.getenv("BOT_PREFIX").length());
+                switch (command) {
+//------USER---------------------HELP--------------------------------------
 
+                    case "help":
+                        Logger.logger.logMessage("help", message);
+                        PrintHelp(channel, member, guild, admin);
+                        Logger.logger.logReponse("help shown", guild, messageId);
+                        break;
 
-                    if (message.getContentDisplay().startsWith(System.getenv("BOT_PREFIX"))) {
-                        if (!PermissionUtil.checkPermission(event.getTextChannel(), event.getGuild().getSelfMember(), Permission.MESSAGE_EMBED_LINKS)) {
-                            channel.sendMessage("Error could not send embeds, pls change my permissions!").queue();
-                            return;
+//------USER--------------------PING---------------------------------------
+
+                    case "ping":
+                        Logger.logger.logMessage("Ping", message);
+                        channel.sendMessage(output.getString("pong")).queue();
+                        Logger.logger.logReponse("Ping shown", guild, messageId);
+                        MessageChannel listen = Global.getGbl().getListener();
+                        if (listen != null) {
+                            listen.sendMessage(new EmbedBuilder()
+                                    .setAuthor(guildname, null, guild.getIconUrl())
+                                    .addField("ID", guild.getId(), false).build()).queue();
+                            Global.getGbl().setListener(null);
                         }
-                        String args[] = message.getContentDisplay().split(" +");
-                        String command = args[0].substring(System.getenv("BOT_PREFIX").length());
-                        switch (command) {
-    //------USER---------------------HELP--------------------------------------
+                        break;
+//------ADMIN---------------ADMIN---------------------------------------
+                    case "admin":
+                        channel.sendTyping().queue();
+                        //if member is allowed
+                        if (member.isOwner() || admin) {
+                            //if there are other arguments
+                            if (args.length > 1) {
+                                //get mentioned roles
+                                List<Role> mentions = message.getMentionedRoles();
+                                Role role = null;
+                                if (mentions.size() >= 1)
+                                    role = mentions.get(0);
 
-                            case "help":
-                                Logger.logger.logMessage("help", message);
-                                PrintHelp(channel, member, guild, admin);
-                                Logger.logger.logReponse("help shown", guild, messageId);
-                                break;
-
-    //------USER--------------------PING---------------------------------------
-
-                            case "ping":
-                                Logger.logger.logMessage("Ping", message);
-                                channel.sendMessage(output.getString("pong")).queue();
-                                Logger.logger.logReponse("Ping shown", guild, messageId);
-                                MessageChannel listen = Global.getGbl().getListener();
-                                if (listen != null) {
-                                    listen.sendMessage(new EmbedBuilder()
-                                            .setAuthor(guildname, null, guild.getIconUrl())
-                                            .addField("ID", guild.getId(), false).build()).queue();
-                                    Global.getGbl().setListener(null);
-                                }
-                                break;
-    //------ADMIN---------------ADMIN---------------------------------------
-                            case "admin":
-                                channel.sendTyping().queue();
-                                //if member is allowed
-                                if (member.isOwner() || admin) {
-                                    //if there are other arguments
-                                    if (args.length > 1) {
-                                        //get mentioned roles
-                                        List<Role> mentions = message.getMentionedRoles();
-                                        Role role = null;
-                                        if(mentions.size()>=1)
-                                            role=mentions.get(0);
-
-                                        //test on second arg
-                                        switch (args[1]) {
-                                            case "add":
-                                                //if there is a mentioned role
-                                                if(role==null)
-                                                    if(args.length>2) {
-                                                        try {
-                                                            role = guild.getRoleById(args[2]);
-                                                        } catch (NumberFormatException ex) {
-                                                            channel.sendMessage(output.getString("error-roleId-invalid")).queue();
-                                                        }
-                                                    }else{
-                                                        channel.sendMessage(output.getString("error-missing-param")).queue();
-                                                    }
-
-                                                Logger.logger.logMessage("admin add", message);
-                                                if (role!=null) {
-                                                    //call class method to add roles
-                                                    final Role rl = role;
-                                                    String msg = dbExecutor.submit(()->
-                                                            dbInterface.addAdmin(rl, guild, output, messageId)
-                                                    ).get();
-                                                    channel.sendMessage(msg).queue();
+                                //test on second arg
+                                switch (args[1]) {
+                                    case "add":
+                                        //if there is a mentioned role
+                                        if (role == null)
+                                            if (args.length > 2) {
+                                                try {
+                                                    role = guild.getRoleById(args[2]);
+                                                } catch (NumberFormatException ex) {
+                                                    channel.sendMessage(output.getString("error-roleId-invalid")).queue();
                                                 }
-                                                break;
-                                            case "remove":
-                                                //if there is a mentioned user
-                                                if(role==null)
-                                                    if(args.length>2) {
-                                                        try {
-                                                            role = guild.getRoleById(args[2]);
-                                                        } catch (NumberFormatException ex) {
-                                                            channel.sendMessage(output.getString("error-roleId-invalid")).queue();
-                                                        }
-                                                    }else{
-                                                        channel.sendMessage(output.getString("error-missing-param")).queue();
-                                                    }
+                                            } else {
+                                                channel.sendMessage(output.getString("error-missing-param")).queue();
+                                            }
 
-                                                Logger.logger.logMessage("admin remove", message);
-                                                if (role!=null) {
-                                                    //call class method to remove roles
-                                                    final Role rl = role;
-                                                    String msg= dbExecutor.submit(()->
-                                                            dbInterface.removeAdmin(rl, guild, output, messageId)
-                                                    ).get();
-                                                    channel.sendMessage(msg).queue();
+                                        Logger.logger.logMessage("admin add", message);
+                                        if (role != null) {
+                                            //call class method to add roles
+                                            final Role rl = role;
+                                            String msg = dbExecutor.submit(() ->
+                                                    dbInterface.addAdmin(rl, guild, output, messageId)
+                                            ).get();
+                                            channel.sendMessage(msg).queue();
+                                        }
+                                        break;
+                                    case "remove":
+                                        //if there is a mentioned user
+                                        if (role == null)
+                                            if (args.length > 2) {
+                                                try {
+                                                    role = guild.getRoleById(args[2]);
+                                                } catch (NumberFormatException ex) {
+                                                    channel.sendMessage(output.getString("error-roleId-invalid")).queue();
                                                 }
-                                                break;
-                                            case "clear": {
-                                                Logger.logger.logMessage("admin clear", message);
-                                                String msg = dbExecutor.submit(()->
-                                                        dbInterface.clearAdmin(guild, output, messageId)
-                                                ).get();
-                                                channel.sendMessage(msg).queue();
-                                                Logger.logger.logReponse("admins cleared", guild, messageId);
-                                                break;
+                                            } else {
+                                                channel.sendMessage(output.getString("error-missing-param")).queue();
                                             }
-                                            case "auto": {
-                                                Logger.logger.logMessage("admin auto", message);
-                                                dbExecutor.submit(()->dbInterface.autoRole(event.getGuild())).get();
-                                                channel.sendMessage(output.getString("admin-auto")).queue();
-                                                Logger.logger.logReponse("admins updated", guild, messageId);
-                                            }
-                                            case "list": {
-                                                //list all mods
-                                                Logger.logger.logMessage("admin list", message);
-                                                String msg = dbExecutor.submit(()->
-                                                        dbInterface.listAdmin(guild, output, messageId)
-                                                ).get();
-                                                SendMsg(channel,msg);
-                                                break;
-                                            }
+
+                                        Logger.logger.logMessage("admin remove", message);
+                                        if (role != null) {
+                                            //call class method to remove roles
+                                            final Role rl = role;
+                                            String msg = dbExecutor.submit(() ->
+                                                    dbInterface.removeAdmin(rl, guild, output, messageId)
+                                            ).get();
+                                            channel.sendMessage(msg).queue();
                                         }
-
+                                        break;
+                                    case "clear": {
+                                        Logger.logger.logMessage("admin clear", message);
+                                        String msg = dbExecutor.submit(() ->
+                                                dbInterface.clearAdmin(guild, output, messageId)
+                                        ).get();
+                                        channel.sendMessage(msg).queue();
+                                        Logger.logger.logReponse("admins cleared", guild, messageId);
+                                        break;
                                     }
-                                    break;
-
-                                } else {
-                                    Logger.logger.logMessage("admin", message);
-                                    channel.sendMessage(output.getString("error-user-permission")).queue();
-                                    Logger.logger.logReponse("user not allowed", guild, messageId);
-                                }
-                                break;
-    //------ADMIN---------------ROLES----------------------------------------
-                            case "roles":
-                                channel.sendTyping().queue();
-                                //if member is allowed
-                                if (member.isOwner() || admin) {
-                                    Logger.logger.logMessage("roles",message);
-                                    StringBuilder ret = new StringBuilder();
-                                    ret.append(output.getString("roles-head")).append("\n");
-                                    for (Role r : guild.getRoles()){
-                                        if(!r.isPublicRole())
-                                            ret.append(r.getName()).append(" [").append(r.getId()).append("]\n");
+                                    case "auto": {
+                                        Logger.logger.logMessage("admin auto", message);
+                                        dbExecutor.submit(() -> dbInterface.autoRole(event.getGuild())).get();
+                                        channel.sendMessage(output.getString("admin-auto")).queue();
+                                        Logger.logger.logReponse("admins updated", guild, messageId);
                                     }
-                                    SendMsg(channel,ret.toString());
-                                    Logger.logger.logReponse("role list shown",guild,messageId);
-                                } else {
-                                    Logger.logger.logMessage("roles", message);
-                                    channel.sendMessage(output.getString("error-user-permission")).queue();
-                                    Logger.logger.logReponse("user not allowed", guild, messageId);
-                                }
-                                break;
-    //------ADMIN---------------FORGIVE---------------------------------------
-                            case "forget":
-                                //if member is allowed
-                                if (member.isOwner() || admin) {
-                                    //if there are other arguments
-                                    channel.sendTyping().queue();
-                                    Logger.logger.logMessage("forgive", message);
-                                    if (args.length > 1) {
-                                        //get mentioned roles
-                                        try {
-                                            long id = Long.parseLong(args[1]);
-                                            String sql = "";
-                                            if(guild.getMemberById(id)==null) {
-                                                String ret = dbExecutor.submit(()->dbInterface.forgetUser(output, guild, id, sql)).get();
-                                                channel.sendMessage(ret).queue();
-                                            }else
-                                                channel.sendMessage(output.getString("error-forget-mutual")).queue();
-                                        }catch (NumberFormatException ex){
-                                            channel.sendMessage(output.getString("error-non-id")).queue();
-                                        }
+                                    case "list": {
+                                        //list all mods
+                                        Logger.logger.logMessage("admin list", message);
+                                        String msg = dbExecutor.submit(() ->
+                                                dbInterface.listAdmin(guild, output, messageId)
+                                        ).get();
+                                        SendMsg(channel, msg);
+                                        break;
                                     }
-                                    break;
-                                } else {
-                                    Logger.logger.logMessage("forget", message);
-                                    channel.sendMessage(output.getString("error-user-permission")).queue();
-                                    Logger.logger.logReponse("user not allowed", guild, messageId);
                                 }
-                                break;
-    //------ADMIN--------------CHANNEL-----------------------------------------
-                            case "wbchannel":
-                                if (member.isOwner() || admin) {
-                                    //if there are other arguments
-                                    channel.sendTyping().queue();
-                                    Logger.logger.logMessage("wbchannel", message);
-                                    //get mentioned roles
-                                    String ret;
-                                    List<TextChannel> mentions = message.getMentionedChannels();
-                                    if (mentions.size() == 0)
-                                        ret = dbExecutor.submit(() -> dbInterface.changeChannel(guild, output, null, messageId)).get();
-                                    else
-                                        ret = dbExecutor.submit(() -> dbInterface.changeChannel(guild, output, mentions.get(0), messageId)).get();
 
+                            }
+                            break;
+
+                        } else {
+                            Logger.logger.logMessage("admin", message);
+                            channel.sendMessage(output.getString("error-user-permission")).queue();
+                            Logger.logger.logReponse("user not allowed", guild, messageId);
+                        }
+                        break;
+//------ADMIN---------------ROLES----------------------------------------
+                    case "roles":
+                        channel.sendTyping().queue();
+                        //if member is allowed
+                        if (member.isOwner() || admin) {
+                            Logger.logger.logMessage("roles", message);
+                            StringBuilder ret = new StringBuilder();
+                            ret.append(output.getString("roles-head")).append("\n");
+                            for (Role r : guild.getRoles()) {
+                                if (!r.isPublicRole())
+                                    ret.append(r.getName()).append(" [").append(r.getId()).append("]\n");
+                            }
+                            SendMsg(channel, ret.toString());
+                            Logger.logger.logReponse("role list shown", guild, messageId);
+                        } else {
+                            Logger.logger.logMessage("roles", message);
+                            channel.sendMessage(output.getString("error-user-permission")).queue();
+                            Logger.logger.logReponse("user not allowed", guild, messageId);
+                        }
+                        break;
+//------ADMIN---------------FORGIVE---------------------------------------
+                    case "forget":
+                        //if member is allowed
+                        if (member.isOwner() || admin) {
+                            //if there are other arguments
+                            channel.sendTyping().queue();
+                            Logger.logger.logMessage("forgive", message);
+                            if (args.length > 1) {
+                                //get mentioned roles
+                                try {
+                                    long id = Long.parseLong(args[1]);
+                                    String sql = "";
+                                    if (guild.getMemberById(id) == null) {
+                                        String ret = dbExecutor.submit(() -> dbInterface.forgetUser(output, guild, id, sql)).get();
+                                        channel.sendMessage(ret).queue();
+                                    } else
+                                        channel.sendMessage(output.getString("error-forget-mutual")).queue();
+                                } catch (NumberFormatException ex) {
+                                    channel.sendMessage(output.getString("error-non-id")).queue();
+                                }
+                            }
+                            break;
+                        } else {
+                            Logger.logger.logMessage("forget", message);
+                            channel.sendMessage(output.getString("error-user-permission")).queue();
+                            Logger.logger.logReponse("user not allowed", guild, messageId);
+                        }
+                        break;
+//------ADMIN--------------CHANNEL-----------------------------------------
+                    case "wbchannel":
+                        if (member.isOwner() || admin) {
+                            //if there are other arguments
+                            channel.sendTyping().queue();
+                            Logger.logger.logMessage("wbchannel", message);
+                            //get mentioned roles
+                            String ret;
+                            List<TextChannel> mentions = message.getMentionedChannels();
+                            if (mentions.size() == 0)
+                                ret = dbExecutor.submit(() -> dbInterface.changeChannel(guild, output, null, messageId)).get();
+                            else
+                                ret = dbExecutor.submit(() -> dbInterface.changeChannel(guild, output, mentions.get(0), messageId)).get();
+
+                            channel.sendMessage(ret).queue();
+                            break;
+                        } else {
+                            Logger.logger.logMessage("wbchannel", message);
+                            channel.sendMessage(output.getString("error-user-permission")).queue();
+                            Logger.logger.logReponse("user not allowed", guild, messageId);
+                        }
+                        break;
+                    case "wbtest":
+                        if (member.isOwner() || admin) {
+                            //if there are other arguments
+                            channel.sendTyping().queue();
+                            Logger.logger.logMessage("wbtest", message);
+                            //get mentioned roles
+                            TextChannel wbChannel = dbExecutor.submit(() -> dbInterface.getChannel(guild)).get();
+                            try {
+                                wbChannel.sendMessage(output.getString("test-message")).queue();
+                                channel.sendMessage(output.getString("test-message-sent").replace("[channel]", wbChannel.getAsMention())).queue();
+                            } catch (InsufficientPermissionException ex) {
+                                channel.sendMessage(output.getString("error-missing-permission").replace("[channel]", wbChannel.getAsMention()) + "\n" + ex.getMessage()).queue();
+                            }
+                            Logger.logger.logReponse("test message sent", guild, messageId);
+                            break;
+                        } else {
+                            Logger.logger.logMessage("wbtest", message);
+                            channel.sendMessage(output.getString("error-user-permission")).queue();
+                            Logger.logger.logReponse("user not allowed", guild, messageId);
+                        }
+                        break;
+//------ADMIN--------------DELAY---------------------------------------------
+                    case "delay":
+                        //if member is allowed
+                        if (member.isOwner() || admin) {
+                            //if there are other arguments
+                            channel.sendTyping().queue();
+                            Logger.logger.logMessage("delay", message);
+                            if (args.length > 1) {
+                                try {
+                                    float delay = Float.parseFloat(args[1]);
+                                    if (delay < 0)
+                                        throw new NumberFormatException("Negative values not allowed");
+                                    String ret = dbExecutor.submit(() -> dbInterface.changeDelay(guild, output, delay, messageId)).get();
                                     channel.sendMessage(ret).queue();
-                                    break;
-                                } else {
-                                    Logger.logger.logMessage("wbchannel", message);
-                                    channel.sendMessage(output.getString("error-user-permission")).queue();
-                                    Logger.logger.logReponse("user not allowed", guild, messageId);
+                                } catch (NumberFormatException ex) {
+                                    channel.sendMessage(output.getString("error-number")).queue();
                                 }
-                                break;
-                            case "wbtest":
-                                if (member.isOwner() || admin) {
-                                    //if there are other arguments
-                                    channel.sendTyping().queue();
-                                    Logger.logger.logMessage("wbtest", message);
-                                    //get mentioned roles
-                                    TextChannel wbChannel = dbExecutor.submit(() -> dbInterface.getChannel(guild)).get();
-                                    try {
-                                        wbChannel.sendMessage(output.getString("test-message")).queue();
-                                        channel.sendMessage(output.getString("test-message-sent").replace("[channel]", wbChannel.getAsMention())).queue();
-                                    }catch (InsufficientPermissionException ex){
-                                        channel.sendMessage(output.getString("error-missing-permission").replace("[channel]", wbChannel.getAsMention()) +"\n"+ ex.getMessage()).queue();
-                                    }
-                                    Logger.logger.logReponse("test message sent", guild, messageId);
-                                    break;
-                                } else {
-                                    Logger.logger.logMessage("wbtest", message);
-                                    channel.sendMessage(output.getString("error-user-permission")).queue();
-                                    Logger.logger.logReponse("user not allowed", guild, messageId);
-                                }
-                                break;
-    //------ADMIN--------------DELAY---------------------------------------------
-                            case "delay":
-                                //if member is allowed
-                                if (member.isOwner() || admin) {
-                                    //if there are other arguments
-                                    channel.sendTyping().queue();
-                                    Logger.logger.logMessage("delay", message);
-                                    if (args.length > 1) {
-                                        try {
-                                            float delay = Float.parseFloat(args[1]);
-                                            if(delay<0)
-                                                throw new NumberFormatException("Negative values not allowed");
-                                            String ret = dbExecutor.submit(() -> dbInterface.changeDelay(guild, output, delay, messageId)).get();
-                                            channel.sendMessage(ret).queue();
-                                        } catch (NumberFormatException ex) {
-                                            channel.sendMessage(output.getString("error-number")).queue();
-                                        }
-                                    }
-                                    break;
-                                } else {
-                                    Logger.logger.logMessage("forgive", message);
-                                    channel.sendMessage(output.getString("error-user-permission")).queue();
-                                    Logger.logger.logReponse("user not allowed", guild, messageId);
-                                }
-                                break;
-    //------OWNER--------------RELOAD--------------------------------------------
-                            default:
-                                if (member.getUser().getIdLong() == Long.parseLong(System.getenv("OWNER_ID"))) {
-                                    if(command.equals("reload")){
-                                        channel.sendMessage(output.getString("reload-started")).queue();
-                                        dbExecutor.submit(()->dbInterface.rePopolateDb(event)).get();
-                                        channel.sendMessage(output.getString("reload-ended")).queue();
-                                    }
-                                }
-
+                            }
+                            break;
+                        } else {
+                            Logger.logger.logMessage("forgive", message);
+                            channel.sendMessage(output.getString("error-user-permission")).queue();
+                            Logger.logger.logReponse("user not allowed", guild, messageId);
                         }
-                    }
+                        break;
+//------OWNER--------------RELOAD--------------------------------------------
+                    default:
+                        if (member.getUser().getIdLong() == Long.parseLong(System.getenv("OWNER_ID"))) {
+                            if (command.equals("reload")) {
+                                channel.sendMessage(output.getString("reload-started")).queue();
+                                dbExecutor.submit(() -> dbInterface.rePopolateDb(event)).get();
+                                channel.sendMessage(output.getString("reload-ended")).queue();
+                            }
+                        }
+
+                }
             } catch (InterruptedException ignored) {
             } catch (Exception e) {
                 e.printStackTrace();
@@ -456,10 +445,7 @@ public class MyListener implements EventListener {
     }
 
 
-
-
-
-    private void onMemberRoleAdded(GuildMemberRoleAddEvent event){
+    private void onMemberRoleAdded(GuildMemberRoleAddEvent event) {
         ResourceBundle output = ResourceBundle.getBundle("messages");
         try {
             if (checkConnection()) {
@@ -473,22 +459,21 @@ public class MyListener implements EventListener {
 
                 List<Role> roles = event.getRoles();
 
-                if(!restoring.contains(event.getUser()))
-                    dbExecutor.execute(()-> dbInterface.memorizeRole(guild, user, roles));
+                if (!restoring.contains(event.getUser()))
+                    dbExecutor.execute(() -> dbInterface.memorizeRole(guild, user, roles));
             } else {
                 event.getJDA().shutdown();
                 Reconnector.reconnect();
             }
-        }catch (InterruptedException ignored){}
-        catch (Exception e){
+        } catch (InterruptedException ignored) {
+        } catch (Exception e) {
             e.printStackTrace();
         }
 
     }
 
 
-
-    private void onMemberRoleRemoved(GuildMemberRoleRemoveEvent event){
+    private void onMemberRoleRemoved(GuildMemberRoleRemoveEvent event) {
         ResourceBundle output = ResourceBundle.getBundle("messages");
         try {
             if (checkConnection()) {
@@ -502,27 +487,26 @@ public class MyListener implements EventListener {
 
                 List<Role> roles = event.getRoles();
 
-                if(!restoring.contains(event.getUser()))
-                    dbExecutor.execute(()->dbInterface.removeRole(guild, user, roles));
+                if (!restoring.contains(event.getUser()))
+                    dbExecutor.execute(() -> dbInterface.removeRole(guild, user, roles));
             } else {
                 event.getJDA().shutdown();
                 Reconnector.reconnect();
             }
-        }catch (InterruptedException ignored){}
-        catch (Exception e){
+        } catch (InterruptedException ignored) {
+        } catch (Exception e) {
             e.printStackTrace();
         }
     }
 
 
-
-    private void onMemberNick(GuildMemberNickChangeEvent event){
+    private void onMemberNick(GuildMemberNickChangeEvent event) {
         ResourceBundle output = ResourceBundle.getBundle("messages");
         try {
             if (checkConnection()) {
                 Guild guild = event.getGuild();
 
-                dbExecutor.submit(()->dbInterface.updateDatabase(guild, output)).get();
+                dbExecutor.submit(() -> dbInterface.updateDatabase(guild, output)).get();
                 //get sender member
                 Member member = event.getMember();
 
@@ -536,8 +520,8 @@ public class MyListener implements EventListener {
                 event.getJDA().shutdown();
                 Reconnector.reconnect();
             }
-        }catch (InterruptedException ignored){}
-        catch (Exception e){
+        } catch (InterruptedException ignored) {
+        } catch (Exception e) {
             e.printStackTrace();
         }
     }
@@ -555,21 +539,20 @@ public class MyListener implements EventListener {
                 event.getJDA().shutdown();
                 Reconnector.reconnect();
             }
-        }catch (Exception e) {
+        } catch (Exception e) {
             e.printStackTrace();
         }
     }
 
 
-
-    private void onMemberJoin(GuildMemberJoinEvent event){
+    private void onMemberJoin(GuildMemberJoinEvent event) {
         ResourceBundle output = ResourceBundle.getBundle("messages");
         try {
             if (checkConnection()) {
 
                 Guild guild = event.getGuild();
 
-                dbExecutor.submit(()->dbInterface.updateDatabase(guild, output)).get();
+                dbExecutor.submit(() -> dbInterface.updateDatabase(guild, output)).get();
                 //get sender member
                 Member member = event.getMember();
 
@@ -580,9 +563,9 @@ public class MyListener implements EventListener {
                 try {
                     //act
                     List<Role> roles = new ArrayList<>();
-                    int out = dbExecutor.submit(()->dbInterface.restoreUser(guild, member, user, gc, roles)).get();
+                    int out = dbExecutor.submit(() -> dbInterface.restoreUser(guild, member, user, gc, roles)).get();
                     if (out > 0) {
-                        Logger.logger.logUserEvent("JOINED - RESTORED", guild,user);
+                        Logger.logger.logUserEvent("JOINED - RESTORED", guild, user);
                         try {
                             String msg = output.getString("restore").replace("[mention]", member.getAsMention()).replace("[uname]", member.getEffectiveName());
                             TextChannel channel = dbExecutor.submit(() -> dbInterface.getChannel(guild)).get();
@@ -594,29 +577,29 @@ public class MyListener implements EventListener {
                         Thread.sleep(Math.round(delay * 1000));
                         try {
                             final long maxHeight = guild.getSelfMember().getRoles().stream().mapToLong(Role::getPosition).max().orElse(0);
-                            List<Role> newList = roles.stream().filter(r->{
-                                if(r.isManaged())
+                            List<Role> newList = roles.stream().filter(r -> {
+                                if (r.isManaged())
                                     return false;
                                 if (r.isPublicRole())
                                     return false;
-                                if(r.getPosition()>=maxHeight)
+                                if (r.getPosition() >= maxHeight)
                                     return false;
                                 return true;
                             }).collect(Collectors.toList());
 
-                            newList.addAll(member.getRoles().stream().filter(r->r.getPosition()>=maxHeight || r.isManaged()).collect(Collectors.toList()));
+                            newList.addAll(member.getRoles().stream().filter(r -> r.getPosition() >= maxHeight || r.isManaged()).collect(Collectors.toList()));
 
                             gc.modifyMemberRoles(member, roles).reason("Role restore").queue();
 
-                            dbExecutor.execute(()->dbInterface.memorizeRole(guild,user,newList));
+                            dbExecutor.execute(() -> dbInterface.memorizeRole(guild, user, newList));
                         } catch (Exception ignored) {
                         }
                     } else
                         Logger.logger.logUserEvent("JOINED", guild, user);
 
-                    dbExecutor.submit(()->dbInterface.memUname(member)).get();
-                    dbExecutor.submit(()->dbInterface.baseRole(guild,user)).get();
-                    dbExecutor.submit(()->dbInterface.updateNick(guild,user,user.getName())).get();
+                    dbExecutor.submit(() -> dbInterface.memUname(member)).get();
+                    dbExecutor.submit(() -> dbInterface.baseRole(guild, user)).get();
+                    dbExecutor.submit(() -> dbInterface.updateNick(guild, user, user.getName())).get();
                     restoring.remove(user);
                 } catch (InterruptedException ignored) {
 
@@ -625,34 +608,34 @@ public class MyListener implements EventListener {
                 event.getJDA().shutdown();
                 Reconnector.reconnect();
             }
-        }catch (InterruptedException ignored){}
-        catch (Exception e){
+        } catch (InterruptedException ignored) {
+        } catch (Exception e) {
             e.printStackTrace();
         }
     }
 
 
-    private void onMemberLeave(GuildMemberLeaveEvent event){
+    private void onMemberLeave(GuildMemberLeaveEvent event) {
         ResourceBundle output = ResourceBundle.getBundle("messages");
         try {
             if (checkConnection()) {
                 Guild guild = event.getGuild();
 
-                dbExecutor.submit(()->dbInterface.updateDatabase(guild, output)).get();
+                dbExecutor.submit(() -> dbInterface.updateDatabase(guild, output)).get();
                 //get sender member
                 Member member = event.getMember();
 
                 User user = member.getUser();
 
-                dbExecutor.submit(()->dbInterface.saveUser(guild, user)).get();
-                Logger.logger.logUserEvent("LEAVED", guild,user);
+                dbExecutor.submit(() -> dbInterface.saveUser(guild, user)).get();
+                Logger.logger.logUserEvent("LEAVED", guild, user);
 
             } else {
                 event.getJDA().shutdown();
                 Reconnector.reconnect();
             }
-        }catch (InterruptedException ignored){}
-        catch (Exception e){
+        } catch (InterruptedException ignored) {
+        } catch (Exception e) {
             e.printStackTrace();
         }
     }
@@ -683,13 +666,13 @@ public class MyListener implements EventListener {
                 event.getJDA().shutdown();
                 Reconnector.reconnect();
             }
-        }catch (InterruptedException ignored){}
-        catch (Exception e){
+        } catch (InterruptedException ignored) {
+        } catch (Exception e) {
             e.printStackTrace();
         }
     }
 
-    private void onChannelDelete(TextChannelDeleteEvent event){
+    private void onChannelDelete(TextChannelDeleteEvent event) {
         ResourceBundle output;
         try {
             if (checkConnection()) {
@@ -713,8 +696,8 @@ public class MyListener implements EventListener {
                 event.getJDA().shutdown();
                 Reconnector.reconnect();
             }
-        }catch (InterruptedException ignored){}
-        catch (Exception e){
+        } catch (InterruptedException ignored) {
+        } catch (Exception e) {
             e.printStackTrace();
         }
     }
@@ -724,7 +707,7 @@ public class MyListener implements EventListener {
         ResourceBundle output = ResourceBundle.getBundle("messages");
         Logger.logger.logEvent("GUILD HAS JOINED", event.getGuild());
         try {
-            if(!dbExecutor.submit(()->dbInterface.guildIsInDb(event.getGuild())).get()) {
+            if (!dbExecutor.submit(() -> dbInterface.guildIsInDb(event.getGuild())).get()) {
                 try {
                     Optional.ofNullable(event.getGuild().getSystemChannel()).orElse(event.getGuild().getDefaultChannel()).sendMessage(output.getString("event-join").replace("[version]", Global.version)).queue();
                 } catch (InsufficientPermissionException ex) {
@@ -734,8 +717,8 @@ public class MyListener implements EventListener {
                 dbExecutor.submit(() -> dbInterface.newGuild(event.getGuild())).get();
                 dbExecutor.submit(() -> dbInterface.autoRole(event.getGuild())).get();
             }
-        }catch (InterruptedException ignored){}
-        catch (Exception e){
+        } catch (InterruptedException ignored) {
+        } catch (Exception e) {
             e.printStackTrace();
         }
         updateServerCount(event.getJDA());
@@ -744,13 +727,14 @@ public class MyListener implements EventListener {
     private void onGuildLeave(GuildLeaveEvent event) {
         Logger.logger.logEvent("GUILD HAS LEAVED", event.getGuild());
         try {
-            dbExecutor.submit(()->dbInterface.guildLeave(event.getGuild())).get();
+            dbExecutor.submit(() -> dbInterface.guildLeave(event.getGuild())).get();
         } catch (InterruptedException ignored) {
         } catch (ExecutionException e) {
             e.printStackTrace();
         }
         updateServerCount(event.getJDA());
     }
+
 
     //prints the help message
     private void PrintHelp(MessageChannel channel, Member member, Guild guild, boolean admin) {
@@ -781,7 +765,7 @@ public class MyListener implements EventListener {
             helpMsg.addField("delay", output.getString("help-def-delay"), false);
         }
 
-        helpMsg.addField("",output.getString("help-last"),false);
+        helpMsg.addField("", output.getString("help-last"), false);
 
         if (member.getUser().getIdLong() == Long.parseLong(System.getenv("OWNER_ID")))
             helpMsg.setFooter(output.getString("help-footer-owner"), member.getUser().getAvatarUrl());
@@ -791,17 +775,17 @@ public class MyListener implements EventListener {
     }
 
     private boolean checkConnection() {
-            try {
-                Statement stmt = conn.createStatement();
-                stmt.execute("SELECT 1");
-                stmt.close();
-                return true;
-            } catch (SQLException ex) {
-                Logger.logger.logError("SQLError in : SELECT 1");
-                Logger.logger.logError("SQLException: " + ex.getMessage());
-                Logger.logger.logError("SQLState: " + ex.getSQLState());
-                Logger.logger.logError("VendorError: " + ex.getErrorCode());
-            }
+        try {
+            Statement stmt = conn.createStatement();
+            stmt.execute("SELECT 1");
+            stmt.close();
+            return true;
+        } catch (SQLException ex) {
+            Logger.logger.logError("SQLError in : SELECT 1");
+            Logger.logger.logError("SQLException: " + ex.getMessage());
+            Logger.logger.logError("SQLState: " + ex.getSQLState());
+            Logger.logger.logError("VendorError: " + ex.getErrorCode());
+        }
         return true;
     }
 
@@ -828,7 +812,6 @@ public class MyListener implements EventListener {
         }
     }
 
-    
 
     private void SendMsg(MessageChannel channel, String text) {
         int messages = ((Double) Math.ceil(text.length() / 1000.0)).intValue();
@@ -855,7 +838,7 @@ public class MyListener implements EventListener {
         this.dbInterface = new DbInterface(conn);
     }
 
-    public void close(){
+    public void close() {
         System.err.println(ansi().fgRed().a("Closing Threads").reset());
         eventThreads.shutdown();
         System.err.println(ansi().fgGreen().a("Threads closed").reset());
@@ -877,8 +860,7 @@ public class MyListener implements EventListener {
     }
 
 
-
-    static public class PausableSingleThreadExecutor extends ThreadPoolExecutor{
+    static public class PausableSingleThreadExecutor extends ThreadPoolExecutor {
         private boolean isPaused;
 
         private ReentrantLock lock = new ReentrantLock();
@@ -908,25 +890,25 @@ public class MyListener implements EventListener {
         }
 
         public boolean isRunning() {
-            return !isPaused && ctn==0;
+            return !isPaused && ctn == 0;
         }
 
         public boolean isPaused() {
-            return isPaused && ctn==1;
+            return isPaused && ctn == 1;
         }
 
         /**
          * Pause the execution
          */
-        public void pause() throws InterruptedException{
+        public void pause() throws InterruptedException {
             lock.lock();
             try {
                 isPaused = true;
             } finally {
                 lock.unlock();
             }
-            while (ctn==0){
-                if(Thread.currentThread().isInterrupted())
+            while (ctn == 0) {
+                if (Thread.currentThread().isInterrupted())
                     throw new InterruptedException();
             }
         }
