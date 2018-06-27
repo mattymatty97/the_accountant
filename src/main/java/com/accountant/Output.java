@@ -31,11 +31,10 @@ public class Output {
     }
 
     public static void run(){
-        int laste=0;
-        int lastt=0;
-        threads =Thread.activeCount();
-        events =Optional.ofNullable(Global.eventQueue.peek()).orElse(0);
-        System.out.print(ansi().fgCyan().a("Event Threads: ").a(events).a("\\").a(threads));
+        int laste=Optional.ofNullable(Global.eventQueue.peek()).orElse(0);
+        int lastt=Thread.activeCount();;
+
+        System.out.print(ansi().fgCyan().a("Event Threads: ").fgBrightGreen().a(events).a("\\").a(threads));
         while (!Thread.interrupted() && Logger.started) {
             try {
                 Thread.sleep(300);

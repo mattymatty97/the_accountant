@@ -55,6 +55,10 @@ public class BOT
         MyListener listener = new MyListener(conn);
 
         Runtime.getRuntime().addShutdownHook(new Thread(()-> {
+            try {
+                Thread.sleep(1000);
+            } catch (InterruptedException ignored) {
+            }
             mine.interrupt();
             Logger.started = false;
             System.out.println((char)27+"[?25h");
