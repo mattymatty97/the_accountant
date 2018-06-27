@@ -34,7 +34,7 @@ public class Output {
         int laste=Optional.ofNullable(Global.eventQueue.peek()).orElse(0);
         int lastt=Thread.activeCount();;
 
-        System.out.print(ansi().fgCyan().a("Event Threads: ").fgBrightGreen().a(events).a("\\").a(threads));
+        System.out.print(ansi().fgCyan().a("Event Threads: ").fgBrightGreen().a(laste).a("\\").a(lastt));
         while (!Thread.interrupted() && Logger.started) {
             try {
                 Thread.sleep(300);
