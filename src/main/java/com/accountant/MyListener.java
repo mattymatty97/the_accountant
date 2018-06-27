@@ -43,10 +43,9 @@ import static org.fusesource.jansi.Ansi.ansi;
 public class MyListener implements EventListener {
     private Connection conn;
     private DbInterface dbInterface;
-    private static ExecutorService eventThreads = Executors.newCachedThreadPool(new MyThreadFactory());
-    private Set<User> restoring = new HashSet<>();
-
-    private static class MyThreadFactory implements ThreadFactory {
+    private static ExecutorService eventThreads = new ThreadPoolExecutor(0, Integer.MAX_VALUE,
+            60L, TimeUnit.SECONDS,
+            new SynchronousQueue<>()){
         private final Queue<Integer> tQueue = new PriorityQueue<Integer>(Comparator.reverseOrder()) {
             @Override
             public synchronized boolean add(Integer e) {
@@ -58,11 +57,10 @@ public class MyListener implements EventListener {
                 return super.poll();
             }
         };
-        private int ctn = 0;
-
+        private int ctn=0;
         @Override
-        public Thread newThread(Runnable r) {
-
+        protected void beforeExecute(Thread t, Runnable r) {
+            super.beforeExecute(t,r);
             int index;
             synchronized (tQueue) {
                 if (tQueue.size() == 0)
@@ -70,20 +68,22 @@ public class MyListener implements EventListener {
                 else
                     index = tQueue.poll();
             }
-
-            Thread b = new Thread(() -> {
-                try {
-                    r.run();
-                } catch (Exception ex) {
-                    tQueue.add(Integer.parseInt(Thread.currentThread().getName().replace("Event Thread: ", "")));
-                    throw ex;
-                }
-                tQueue.add(Integer.parseInt(Thread.currentThread().getName().replace("Event Thread: ", "")));
-            }, "Event Thread: " + index);
-            b.setPriority(Thread.NORM_PRIORITY + 1);
-            return b;
+            t.setName("Event Thread: " + index);
         }
-    }
+
+        @Override
+        protected void afterExecute(Runnable r, Throwable t) {
+            super.afterExecute(r,t);
+            int index;
+            synchronized (tQueue) {
+                String name = Thread.currentThread().getName();
+                index = Integer.parseInt(name.split(" ")[2]);
+                tQueue.add(index);
+            }
+        }
+    };
+
+    private Set<User> restoring = new HashSet<>();
 
     static PausableSingleThreadExecutor dbExecutor = new PausableSingleThreadExecutor(a -> new Thread(a, "DB Thread"));
 
@@ -181,10 +181,12 @@ public class MyListener implements EventListener {
                 boolean admin = dbExecutor.submit(() ->
                         dbInterface.memberIsAdmin(member, guild.getIdLong())
                 ).get();
+
                 if (!PermissionUtil.checkPermission(channel, guild.getSelfMember(), Permission.MESSAGE_EMBED_LINKS)) {
                     channel.sendMessage("Missing permission EMBED_LINKS please fix").queue();
                     return;
                 }
+
                 String args[] = message.getContentDisplay().split(" +");
                 String command = args[0].substring(System.getenv("BOT_PREFIX").length());
                 switch (command) {
