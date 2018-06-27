@@ -53,10 +53,7 @@ public class MyListener implements EventListener {
             super.beforeExecute(t,r);
             int index;
             synchronized (Global.eventQueue) {
-                if (Global.eventQueue.size() == 0)
-                    index = ctn++;
-                else
-                    index = Global.eventQueue.poll();
+                index = Optional.ofNullable(Global.eventQueue.poll()).orElse(Global.maxEventCtn++);
             }
             t.setName("Event Thread: " + index);
         }

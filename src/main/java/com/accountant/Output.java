@@ -33,13 +33,15 @@ public class Output {
     public static void run(){
         int laste=0;
         int lastt=0;
-        System.out.print(ansi().fgCyan().a("Event Threads: "));
+        threads =Thread.activeCount();
+        events =Optional.ofNullable(Global.eventQueue.peek()).orElse(0);
+        System.out.print(ansi().fgCyan().a("Event Threads: ").a(events).a("\\").a(threads));
         while (!Thread.interrupted() && Logger.started) {
             try {
                 Thread.sleep(300);
             }catch (InterruptedException ignored){}
             threads =Thread.activeCount();
-            events =Optional.ofNullable(Global.eventQueue.poll()).orElse(0);
+            events = Optional.ofNullable(Global.eventQueue.peek()).orElse(Global.maxEventCtn);
             if(threads != lastt || events!=laste) {
                 synchronized (System.out) {
                     for(int i = 0; i<(laste +"\\"+ lastt).length(); i++)
