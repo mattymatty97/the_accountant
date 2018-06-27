@@ -4,19 +4,20 @@ package com.accountant;
 import net.dv8tion.jda.core.entities.MessageChannel;
 
 import java.io.FileWriter;
-import java.util.HashMap;
-import java.util.Map;
+import java.util.*;
 
 @SuppressWarnings("WeakerAccess")
 public class Global {
     public static final String version = "v2.13 - ac prj";
-    public static final String build = "10";
+    public static final String build = "11";
 
     private static Global gbl = new Global();
 
     public static Global getGbl(){
         return gbl;
     }
+
+    public static final Queue<Integer> eventQueue = new PriorityQueue<>(Comparator.reverseOrder());
 
     private MessageChannel listener;
     private FileWriter fwGlobal;

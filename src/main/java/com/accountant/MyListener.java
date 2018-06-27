@@ -30,7 +30,6 @@ import java.sql.SQLException;
 import java.sql.Statement;
 import java.util.*;
 import java.util.List;
-import java.util.Queue;
 import java.util.concurrent.*;
 import java.util.concurrent.locks.Condition;
 import java.util.concurrent.locks.ReentrantLock;
@@ -46,27 +45,18 @@ public class MyListener implements EventListener {
     private static ExecutorService eventThreads = new ThreadPoolExecutor(0, Integer.MAX_VALUE,
             60L, TimeUnit.SECONDS,
             new SynchronousQueue<>()){
-        private final Queue<Integer> tQueue = new PriorityQueue<Integer>(Comparator.reverseOrder()) {
-            @Override
-            public synchronized boolean add(Integer e) {
-                return super.add(e);
-            }
 
-            @Override
-            public synchronized Integer poll() {
-                return super.poll();
-            }
-        };
         private int ctn=0;
+
         @Override
         protected void beforeExecute(Thread t, Runnable r) {
             super.beforeExecute(t,r);
             int index;
-            synchronized (tQueue) {
-                if (tQueue.size() == 0)
+            synchronized (Global.eventQueue) {
+                if (Global.eventQueue.size() == 0)
                     index = ctn++;
                 else
-                    index = tQueue.poll();
+                    index = Global.eventQueue.poll();
             }
             t.setName("Event Thread: " + index);
         }
@@ -75,10 +65,10 @@ public class MyListener implements EventListener {
         protected void afterExecute(Runnable r, Throwable t) {
             super.afterExecute(r,t);
             int index;
-            synchronized (tQueue) {
+            synchronized (Global.eventQueue) {
                 String name = Thread.currentThread().getName();
                 index = Integer.parseInt(name.split(" ")[2]);
-                tQueue.add(index);
+                Global.eventQueue.add(index);
             }
         }
     };
@@ -103,7 +93,9 @@ public class MyListener implements EventListener {
             Message message = ev.getMessage();
             if (message.getContentDisplay().startsWith(System.getenv("BOT_PREFIX")))
                 eventThreads.execute(() -> onMessageReceived((MessageReceivedEvent) event));
-        } else if (event instanceof RoleDeleteEvent)
+        }
+
+        else if (event instanceof RoleDeleteEvent)
             eventThreads.execute(() -> onRoleDelete((RoleDeleteEvent) event));
 
         else if (event instanceof TextChannelDeleteEvent)

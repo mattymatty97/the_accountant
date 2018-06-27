@@ -2,10 +2,13 @@ package com.accountant;
 
 import net.dv8tion.jda.core.entities.Guild;
 
+import java.util.Optional;
+
 import static org.fusesource.jansi.Ansi.ansi;
 
 public class Output {
-    private static int act=0;
+    private static int threads=0;
+    private static int events =0;
 
     public static void println(Object obj) {
         println(obj.toString());
@@ -20,7 +23,7 @@ public class Output {
             synchronized (System.out){
                 System.out.print("\r                          \r"+ansi().reset());
                 System.out.println(st);
-                System.out.print(ansi().fgCyan().a("Active Threads: ").fgBrightGreen().a(act));
+                System.out.print(ansi().fgCyan().a("Event Threads: ").fgBrightGreen().a(events).a("\\").a(threads));
             }
         }
         else
@@ -28,21 +31,24 @@ public class Output {
     }
 
     public static void run(){
-        int last=0;
-        System.out.print(ansi().fgCyan().a("Active Threads: "));
+        int laste=0;
+        int lastt=0;
+        System.out.print(ansi().fgCyan().a("Event Threads: "));
         while (!Thread.interrupted() && Logger.started) {
             try {
                 Thread.sleep(300);
             }catch (InterruptedException ignored){}
-            act=Thread.activeCount();
-            if(act!=last) {
+            threads =Thread.activeCount();
+            events =Optional.ofNullable(Global.eventQueue.poll()).orElse(0);
+            if(threads != lastt || events!=laste) {
                 synchronized (System.out) {
-                    for(int i=0;i<String.valueOf(last).length();i++)
+                    for(int i = 0; i<(laste +"\\"+ lastt).length(); i++)
                         System.out.print("\b");
-                    System.out.print(ansi().fgBrightGreen().a(act));
+                    System.out.print(ansi().fgBrightGreen().a(events).a("\\").a(threads));
                 }
             }
-            last=act;
+            lastt= threads;
+            laste= events;
         }
     }
 }
