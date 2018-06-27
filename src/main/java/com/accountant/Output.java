@@ -21,7 +21,7 @@ public class Output {
     public static void println(String st){
         if (Logger.started) {
             synchronized (System.out){
-                System.out.print("\r                          \r"+ansi().reset());
+                System.out.print("\r                              \r"+ansi().reset());
                 System.out.println(st);
                 System.out.print(ansi().fgCyan().a("Event Threads: ").fgBrightGreen().a(events).a("\\").a(threads));
             }

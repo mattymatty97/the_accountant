@@ -4,7 +4,6 @@ import net.dv8tion.jda.core.JDA;
 import net.dv8tion.jda.core.JDABuilder;
 import net.dv8tion.jda.core.entities.Game;
 import org.fusesource.jansi.AnsiConsole;
-import sun.misc.Signal;
 
 import java.sql.Connection;
 import java.sql.DriverManager;
@@ -55,11 +54,11 @@ public class BOT
 
         MyListener listener = new MyListener(conn);
 
-        Signal.handle(new Signal("INT"), sig -> {
+        Runtime.getRuntime().addShutdownHook(new Thread(()-> {
             mine.interrupt();
             Logger.started = false;
             System.out.println((char)27+"[?25h");
-            System.err.println(ansi().fgRed().a("Received SIGINT").reset());
+            System.err.println(ansi().fgRed().a("Closing program").reset());
             ac.interrupt();
             listener.close();
             Logger.tlogger.interrupt();
@@ -67,8 +66,7 @@ public class BOT
                 Logger.tlogger.join();
             }catch (Exception ignore){}
             Logger.logger.closeFiles();
-            System.exit(sig.getNumber());
-        });
+        }));
 
         api.addEventListener(listener);
         api.getPresence().setGame(Game.playing(Global.version));
