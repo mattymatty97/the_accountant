@@ -613,10 +613,11 @@ public class DbInterface {
                             sql1 = sqli2 + g.getId();
                             ResultSet rs = stmt3.executeQuery();
                             sql1 = sqli3 + g.getId() + ")";
-                            if (!rs.next())
+                            if (!rs.next()){
                                 stmt4.executeUpdate();
+                            	autoRole(g);
+                            }
                             rs.close();
-                            autoRole(g);
                         } catch (SQLException ex) {
                             sqlError(sql1, ex);
                         }
