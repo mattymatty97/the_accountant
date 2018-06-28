@@ -42,6 +42,7 @@ import static org.fusesource.jansi.Ansi.ansi;
 public class MyListener implements EventListener {
     private Connection conn;
     private DbInterface dbInterface;
+    private boolean ready;
     private static ExecutorService eventThreads = new ThreadPoolExecutor(0, Integer.MAX_VALUE,
             60L, TimeUnit.SECONDS,
             new SynchronousQueue<>()){
@@ -81,51 +82,51 @@ public class MyListener implements EventListener {
     public void onEvent(Event event) {
         if (event instanceof ReadyEvent)
             onReady((ReadyEvent) event);
-        else if (event instanceof MessageReceivedEvent) {
-            MessageReceivedEvent ev = (MessageReceivedEvent) event;
-            if (!ev.isFromType(ChannelType.TEXT)) return;
-            //if is a bot exit immediately
-            if (ev.getAuthor().isBot()) return;
-            //if i cant write
-            if (!PermissionUtil.checkPermission(ev.getTextChannel(), ev.getGuild().getSelfMember(), Permission.MESSAGE_WRITE))
-                return;
-            //get message
-            Message message = ev.getMessage();
-            if (message.getContentDisplay().startsWith(System.getenv("BOT_PREFIX")))
-                eventThreads.execute(() -> onMessageReceived((MessageReceivedEvent) event));
+        else if (ready) {
+            if (event instanceof MessageReceivedEvent) {
+                MessageReceivedEvent ev = (MessageReceivedEvent) event;
+                if (!ev.isFromType(ChannelType.TEXT)) return;
+                //if is a bot exit immediately
+                if (ev.getAuthor().isBot()) return;
+                //if i cant write
+                if (!PermissionUtil.checkPermission(ev.getTextChannel(), ev.getGuild().getSelfMember(), Permission.MESSAGE_WRITE))
+                    return;
+                //get message
+                Message message = ev.getMessage();
+                if (message.getContentDisplay().startsWith(System.getenv("BOT_PREFIX")))
+                    eventThreads.execute(() -> onMessageReceived((MessageReceivedEvent) event));
+            } else if (event instanceof RoleDeleteEvent)
+                eventThreads.execute(() -> onRoleDelete((RoleDeleteEvent) event));
+
+            else if (event instanceof TextChannelDeleteEvent)
+                eventThreads.execute(() -> onChannelDelete((TextChannelDeleteEvent) event));
+
+            else if (event instanceof GuildJoinEvent)
+                eventThreads.execute(() -> onGuildJoin((GuildJoinEvent) event));
+            else if (event instanceof GuildLeaveEvent)
+                eventThreads.execute(() -> onGuildLeave((GuildLeaveEvent) event));
+
+
+            else if (event instanceof GuildMemberRoleAddEvent)
+                eventThreads.execute(() -> onMemberRoleAdded((GuildMemberRoleAddEvent) event));
+            else if (event instanceof GuildMemberRoleRemoveEvent)
+                eventThreads.execute(() -> onMemberRoleRemoved((GuildMemberRoleRemoveEvent) event));
+
+
+            else if (event instanceof GuildMemberJoinEvent) {
+                try {
+                    restoring.add(((GuildMemberJoinEvent) event).getUser());
+                    Thread.sleep(30);
+                    eventThreads.execute(() -> onMemberJoin((GuildMemberJoinEvent) event));
+                } catch (InterruptedException ignored) {
+                }
+            } else if (event instanceof GuildMemberLeaveEvent)
+                eventThreads.execute(() -> onMemberLeave((GuildMemberLeaveEvent) event));
+            else if (event instanceof GuildMemberNickChangeEvent)
+                eventThreads.execute(() -> onMemberNick((GuildMemberNickChangeEvent) event));
+            else if (event instanceof UserUpdateNameEvent)
+                eventThreads.execute(() -> onMemberUsername((UserUpdateNameEvent) event));
         }
-
-        else if (event instanceof RoleDeleteEvent)
-            eventThreads.execute(() -> onRoleDelete((RoleDeleteEvent) event));
-
-        else if (event instanceof TextChannelDeleteEvent)
-            eventThreads.execute(() -> onChannelDelete((TextChannelDeleteEvent) event));
-
-        else if (event instanceof GuildJoinEvent)
-            eventThreads.execute(() -> onGuildJoin((GuildJoinEvent) event));
-        else if (event instanceof GuildLeaveEvent)
-            eventThreads.execute(() -> onGuildLeave((GuildLeaveEvent) event));
-
-
-        else if (event instanceof GuildMemberRoleAddEvent)
-            eventThreads.execute(() -> onMemberRoleAdded((GuildMemberRoleAddEvent) event));
-        else if (event instanceof GuildMemberRoleRemoveEvent)
-            eventThreads.execute(() -> onMemberRoleRemoved((GuildMemberRoleRemoveEvent) event));
-
-
-        else if (event instanceof GuildMemberJoinEvent) {
-            try {
-                restoring.add(((GuildMemberJoinEvent) event).getUser());
-                Thread.sleep(30);
-                eventThreads.execute(() -> onMemberJoin((GuildMemberJoinEvent) event));
-            } catch (InterruptedException ignored) {
-            }
-        } else if (event instanceof GuildMemberLeaveEvent)
-            eventThreads.execute(() -> onMemberLeave((GuildMemberLeaveEvent) event));
-        else if (event instanceof GuildMemberNickChangeEvent)
-            eventThreads.execute(() -> onMemberNick((GuildMemberNickChangeEvent) event));
-        else if (event instanceof UserUpdateNameEvent)
-            eventThreads.execute(() -> onMemberUsername((UserUpdateNameEvent) event));
 
     }
 
@@ -137,6 +138,9 @@ public class MyListener implements EventListener {
             dbExecutor.submit(() ->
                     dbInterface.cleanDb(sql, guilds)
             ).get();
+            dbExecutor.submit(()->
+                    dbInterface.rePopolateDb(event.getJDA())
+            ).get();
         } catch (InterruptedException ignored) {
         } catch (Exception e) {
             e.printStackTrace();
@@ -144,6 +148,7 @@ public class MyListener implements EventListener {
         updateServerCount(event.getJDA());
         Logger.logger.logGeneral("------------SYSTEM READY---------------\r\n");
         Logger.started = true;
+        ready=true;
     }
 
 
@@ -421,7 +426,7 @@ public class MyListener implements EventListener {
                         if (member.getUser().getIdLong() == Long.parseLong(System.getenv("OWNER_ID"))) {
                             if (command.equals("reload")) {
                                 channel.sendMessage(output.getString("reload-started")).queue();
-                                dbExecutor.submit(() -> dbInterface.rePopolateDb(event)).get();
+                                dbExecutor.submit(() -> dbInterface.rePopolateDb(event.getJDA())).get();
                                 channel.sendMessage(output.getString("reload-ended")).queue();
                             }
                         }

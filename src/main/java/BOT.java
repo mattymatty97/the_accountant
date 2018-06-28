@@ -48,7 +48,7 @@ public class BOT
 
         Thread ac = new Thread(new AutoCleaner(conn),"Cleaner Thread");
         ac.setPriority(Thread.NORM_PRIORITY - 1);
-        ac.start();
+
 
         JDA api = new JDABuilder(AccountType.BOT).setToken(System.getenv("BOT_TOKEN")).buildAsync();
 
@@ -76,6 +76,10 @@ public class BOT
 
         api.addEventListener(listener);
         api.getPresence().setGame(Game.playing(Global.version));
+
+        while (api.getStatus()!= JDA.Status.CONNECTED);
+
+        ac.start();
 
         while (!Logger.started && !Thread.interrupted()) ;
 

@@ -1,8 +1,8 @@
 package com.accountant;
 
+import net.dv8tion.jda.core.JDA;
 import net.dv8tion.jda.core.Permission;
 import net.dv8tion.jda.core.entities.*;
-import net.dv8tion.jda.core.events.message.MessageReceivedEvent;
 import net.dv8tion.jda.core.exceptions.InsufficientPermissionException;
 import net.dv8tion.jda.core.managers.GuildController;
 
@@ -584,7 +584,7 @@ public class DbInterface {
         }
     }
 
-    public void rePopolateDb(MessageReceivedEvent event) {
+    public void rePopolateDb(JDA jda) {
         String sql = "";
         String sql2 = "";
         try {
@@ -604,7 +604,7 @@ public class DbInterface {
             final PreparedStatement stmt2 = conn.prepareStatement("INSERT INTO MemberNick(guildId, userId, nickname) VALUES (?,?,?)");
             final PreparedStatement stmt3 = conn.prepareStatement("SELECT * FROM guilds WHERE guildId=?");
             final PreparedStatement stmt4 = conn.prepareStatement("INSERT INTO guilds(guildId) VALUES (?)");
-            event.getJDA().getGuilds().stream().peek(Output::println)
+            jda.getGuilds().stream().peek(Output::println)
                     .peek(g -> {
                         String sql1 = "";
                         try {
