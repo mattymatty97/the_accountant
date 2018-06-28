@@ -56,7 +56,7 @@ public class BOT
 
         Runtime.getRuntime().addShutdownHook(new Thread(()-> {
             try {
-                Thread.sleep(1000);
+                Thread.sleep(2000);
             } catch (InterruptedException ignored) {
             }
             mine.interrupt();
