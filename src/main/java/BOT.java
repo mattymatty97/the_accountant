@@ -62,7 +62,6 @@ public class BOT
             ac.interrupt();
             listener.close();
             api.shutdown();
-            while (api.getStatus()!= JDA.Status.SHUTDOWN);
             Logger.tlogger.interrupt();
             try {
                 Logger.tlogger.join();
@@ -77,7 +76,7 @@ public class BOT
         api.addEventListener(listener);
         api.getPresence().setGame(Game.playing(Global.version));
 
-        while (api.getStatus()!= JDA.Status.CONNECTED);
+        while (Logger.started);
 
         ac.start();
 

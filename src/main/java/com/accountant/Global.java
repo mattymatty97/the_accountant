@@ -9,7 +9,7 @@ import java.util.*;
 @SuppressWarnings("WeakerAccess")
 public class Global {
     public static final String version = "v2.13 - ac prj";
-    public static final String build = "19";
+    public static final String build = "20";
 
     private static Global gbl = new Global();
 
