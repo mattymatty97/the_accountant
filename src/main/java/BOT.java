@@ -50,7 +50,7 @@ public class BOT
         ac.setPriority(Thread.NORM_PRIORITY - 1);
         ac.start();
 
-        JDA api = new JDABuilder(AccountType.BOT).setToken(System.getenv("BOT_TOKEN")).buildBlocking();
+        JDA api = new JDABuilder(AccountType.BOT).setToken(System.getenv("BOT_TOKEN")).buildAsync();
 
         MyListener listener = new MyListener(conn);
 
