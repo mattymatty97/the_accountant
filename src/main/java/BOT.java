@@ -50,27 +50,29 @@ public class BOT
         ac.setPriority(Thread.NORM_PRIORITY - 1);
         ac.start();
 
-        JDA api = new JDABuilder(AccountType.BOT).setToken(System.getenv("BOT_TOKEN")).buildAsync();
+        JDA api = new JDABuilder(AccountType.BOT).setToken(System.getenv("BOT_TOKEN")).buildBlocking();
 
         MyListener listener = new MyListener(conn);
 
-        Runtime.getRuntime().addShutdownHook(new Thread(()-> {
-            try {
-                Thread.sleep(2000);
-            } catch (InterruptedException ignored) {
-            }
+        Thread shutdown = new Thread(()-> {
             mine.interrupt();
             Logger.started = false;
             System.out.println((char)27+"[?25h");
             System.err.println(ansi().fgRed().a("Closing program").reset());
             ac.interrupt();
             listener.close();
+            api.shutdown();
+            while (api.getStatus()!= JDA.Status.SHUTDOWN);
             Logger.tlogger.interrupt();
             try {
                 Logger.tlogger.join();
             }catch (Exception ignore){}
             Logger.logger.closeFiles();
-        }));
+        });
+        shutdown.setName("Shutdown Thread");
+        shutdown.setPriority(Thread.MAX_PRIORITY);
+
+        Runtime.getRuntime().addShutdownHook(shutdown);
 
         api.addEventListener(listener);
         api.getPresence().setGame(Game.playing(Global.version));

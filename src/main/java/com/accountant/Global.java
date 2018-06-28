@@ -9,7 +9,7 @@ import java.util.*;
 @SuppressWarnings("WeakerAccess")
 public class Global {
     public static final String version = "v2.13 - ac prj";
-    public static final String build = "16";
+    public static final String build = "17";
 
     private static Global gbl = new Global();
 
@@ -18,7 +18,7 @@ public class Global {
     }
 
     public static final Queue<Integer> eventQueue = new PriorityQueue<>(Comparator.reverseOrder());
-    public static int maxEventCtn = 0;
+    public static int maxEventCtn = 1;
 
     private MessageChannel listener;
     private FileWriter fwGlobal;

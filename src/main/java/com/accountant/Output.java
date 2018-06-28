@@ -31,25 +31,30 @@ public class Output {
     }
 
     public static void run(){
-        int laste=Optional.ofNullable(Global.eventQueue.peek()).orElse(0);
-        int lastt=Thread.activeCount();;
+        int lastE;
+        synchronized (Global.eventQueue) {
+            lastE = Optional.ofNullable(Global.eventQueue.peek()).orElse(Global.maxEventCtn) - 1;
+        }
+        int lastT=Thread.activeCount();
 
-        System.out.print(ansi().fgCyan().a("Event Threads: ").fgBrightGreen().a(laste).a("\\").a(lastt));
+        System.out.print(ansi().fgCyan().a("Event Threads: ").fgBrightGreen().a(lastE).a("\\").a(lastT));
         while (!Thread.interrupted() && Logger.started) {
             try {
                 Thread.sleep(300);
             }catch (InterruptedException ignored){}
             threads =Thread.activeCount();
-            events = Optional.ofNullable(Global.eventQueue.peek()).orElse(Global.maxEventCtn);
-            if(threads != lastt || events!=laste) {
+            synchronized (Global.eventQueue) {
+                events = Optional.ofNullable(Global.eventQueue.peek()).orElse(Global.maxEventCtn) - 1;
+            }
+            if(threads != lastT || events!=lastE) {
                 synchronized (System.out) {
-                    for(int i = 0; i<(laste +"\\"+ lastt).length(); i++)
+                    for(int i = 0; i<(lastE +"\\"+ lastT).length(); i++)
                         System.out.print("\b");
                     System.out.print(ansi().fgBrightGreen().a(events).a("\\").a(threads));
                 }
             }
-            lastt= threads;
-            laste= events;
+            lastT= threads;
+            lastE= events;
         }
     }
 }
