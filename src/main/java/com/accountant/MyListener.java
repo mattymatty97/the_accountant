@@ -529,7 +529,7 @@ public class MyListener implements EventListener {
         try {
             if (checkConnection()) {
                 User user = event.getUser();
-
+                Thread.sleep(1000);
                 String oldUname = event.getOldName();
                 if (!restoring.contains(user)) {
                     dbExecutor.execute(() -> dbInterface.updateUname(user, oldUname));

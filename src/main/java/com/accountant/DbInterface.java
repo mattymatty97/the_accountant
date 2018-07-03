@@ -842,7 +842,7 @@ public class DbInterface {
             rs = stmt.executeQuery();
             while (rs.next()) {
                 try {
-                    gc.setNickname(member, rs.getString("nickname")).reason("restore Nickname").queue();
+                    gc.setNickname(member, rs.getString("nickname")).reason("restore Nickname").complete();
                     restored = true;
                 } catch (Exception ignored) {
                 }
