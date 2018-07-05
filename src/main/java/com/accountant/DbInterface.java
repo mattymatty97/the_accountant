@@ -600,21 +600,23 @@ public class DbInterface {
             final String sqli = "INSERT INTO MemberRoles(guildId, userId, roleId) VALUES (";
             final String sqli2 = "SELECT * FROM guilds WHERE guildId=";
             final String sqli3 = "INSERT INTO guilds(guildId) VALUE (";
-            final PreparedStatement stmt1 = conn.prepareStatement("INSERT INTO MemberRoles(guildId, userId, roleId) VALUES (?,?,?)");
-            final PreparedStatement stmt2 = conn.prepareStatement("INSERT INTO MemberNick(guildId, userId, nickname) VALUES (?,?,?)");
-            final PreparedStatement stmt3 = conn.prepareStatement("SELECT * FROM guilds WHERE guildId=?");
-            final PreparedStatement stmt4 = conn.prepareStatement("INSERT INTO guilds(guildId) VALUES (?)");
+            final PreparedStatement stmt1 = conn.prepareStatement("DELETE FROM MemberRoles WHERE guildid=? AND userId=?");
+            final PreparedStatement stmt2 = conn.prepareStatement("INSERT INTO MemberRoles(guildId, userId, roleId) VALUES (?,?,?)");
+            final PreparedStatement stmt3 = conn.prepareStatement("DELETE FROM MemberRoles WHERE guildid=? AND userId=?");
+            final PreparedStatement stmt4 = conn.prepareStatement("INSERT INTO MemberNick(guildId, userId, nickname) VALUES (?,?,?)");
+            final PreparedStatement stmt5 = conn.prepareStatement("SELECT * FROM guilds WHERE guildId=?");
+            final PreparedStatement stmt6 = conn.prepareStatement("INSERT INTO guilds(guildId) VALUES (?)");
             jda.getGuilds().stream().peek(Output::println)
                     .peek(g -> {
                         String sql1 = "";
                         try {
-                            stmt4.setLong(1, g.getIdLong());
-                            stmt3.setLong(1, g.getIdLong());
+                            stmt6.setLong(1, g.getIdLong());
+                            stmt5.setLong(1, g.getIdLong());
                             sql1 = sqli2 + g.getId();
-                            ResultSet rs = stmt3.executeQuery();
+                            ResultSet rs = stmt5.executeQuery();
                             sql1 = sqli3 + g.getId() + ")";
                             if (!rs.next()){
-                                stmt4.executeUpdate();
+                                stmt6.executeUpdate();
                             	autoRole(g);
                             }
                             rs.close();
@@ -627,19 +629,29 @@ public class DbInterface {
                 try {
                     stmt1.setLong(1, m.getGuild().getIdLong());
                     stmt1.setLong(2, m.getUser().getIdLong());
-                    stmt1.setNull(3,Types.BIGINT);
                     stmt1.executeUpdate();
                     stmt2.setLong(1, m.getGuild().getIdLong());
                     stmt2.setLong(2, m.getUser().getIdLong());
+                    stmt2.setNull(3,Types.BIGINT);
+                    stmt2.executeUpdate();
+                    stmt3.setLong(1, m.getGuild().getIdLong());
+                    stmt3.setLong(2, m.getUser().getIdLong());
+                    stmt3.executeUpdate();
+                    stmt4.setLong(1, m.getGuild().getIdLong());
+                    stmt4.setLong(2, m.getUser().getIdLong());
                     for (Role role : m.getRoles()) {
                         if (!(role.isPublicRole() || role.isManaged())) {
                             sql1 = sqli + m.getGuild().getId() + "," + m.getUser().getId() + "," + role.getId() + ")";
-                            stmt1.setLong(3, role.getIdLong());
-                            stmt1.executeUpdate();
+                            stmt2.setLong(3, role.getIdLong());
+                            stmt2.executeUpdate();
                         }
                     }
-                    stmt2.setString(3, m.getEffectiveName());
-                    stmt2.executeUpdate();
+                    stmt4.setString(3, m.getEffectiveName());
+                    stmt4.executeUpdate();
+                    roleMemStmt.setLong(1, m.getGuild().getIdLong());
+                    roleMemStmt.setLong(2, m.getUser().getIdLong());
+                    roleMemStmt.setNull(3,Types.BIGINT);
+                    roleMemStmt.executeUpdate();
                 } catch (SQLException ex) {
                     sqlError(sql1, ex);
                 }
@@ -648,6 +660,8 @@ public class DbInterface {
             stmt2.close();
             stmt3.close();
             stmt4.close();
+            stmt5.close();
+            stmt6.close();
             conn.commit();
             Output.println("Reload done");
         } catch (SQLException ex) {
