@@ -47,7 +47,7 @@ public class MyListener implements EventListener {
             60L, TimeUnit.SECONDS,
             new SynchronousQueue<>()){
 
-        private int ctn=0;
+        Map<Thread,Integer> threadIntegerMap = new HashMap<>();
 
         @Override
         protected void beforeExecute(Thread t, Runnable r) {
@@ -60,6 +60,7 @@ public class MyListener implements EventListener {
                 index=Global.maxEventCtn++;
 
             t.setName("Event Thread: " + index);
+            threadIntegerMap.put(t,index);
         }
 
         @Override
@@ -67,8 +68,8 @@ public class MyListener implements EventListener {
             super.afterExecute(r,t);
             int index;
             synchronized (Global.eventQueue) {
-                String name = Thread.currentThread().getName();
-                index = Integer.parseInt(name.split(" ")[2]);
+                Thread thread = Thread.currentThread();
+                index = threadIntegerMap.get(thread);
                 Global.eventQueue.add(index);
             }
         }
