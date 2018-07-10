@@ -4,12 +4,15 @@ package com.accountant;
 import net.dv8tion.jda.core.entities.MessageChannel;
 
 import java.io.FileWriter;
-import java.util.*;
+import java.util.HashMap;
+import java.util.Map;
+import java.util.PriorityQueue;
+import java.util.Queue;
 
 @SuppressWarnings("WeakerAccess")
 public class Global {
-    public static final String version = "v2.13 - ac prj";
-    public static final String build = "24";
+    public static final String version = "v2.14 - ac prj";
+    public static final String build = "1";
 
     private static Global gbl = new Global();
 
@@ -17,7 +20,7 @@ public class Global {
         return gbl;
     }
 
-    public static final Queue<Integer> eventQueue = new PriorityQueue<>(Comparator.reverseOrder());
+    public static final Queue<Integer> eventQueue = new PriorityQueue<>();
     public static int maxEventCtn = 1;
 
     private MessageChannel listener;
