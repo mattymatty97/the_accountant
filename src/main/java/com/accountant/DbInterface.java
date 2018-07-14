@@ -566,8 +566,11 @@ public class DbInterface {
                 try {
                     getChannel(guild).sendMessage(output.getString("event-join").replace("[version]", Global.version)).queue();
                 } catch (InsufficientPermissionException ex) {
-                    guild.getOwner().getUser().openPrivateChannel().queue((PrivateChannel channel) ->
-                            channel.sendMessage(output.getString("event-join").replace("[version]", Global.version)).queue());
+                    try {
+                        guild.getOwner().getUser().openPrivateChannel().queue((PrivateChannel channel) ->
+                                channel.sendMessage(output.getString("event-join").replace("[version]", Global.version)).queue());
+
+                    }catch (Exception ignored){}
                 }
             }
             stmt1.close();
