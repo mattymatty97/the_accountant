@@ -77,6 +77,8 @@ public class MyListener implements EventListener {
 
     private Set<User> restoring = new HashSet<>();
 
+    private Set<Guild> initializing = new HashSet<>();
+
     static PausableSingleThreadExecutor dbExecutor = new PausableSingleThreadExecutor(a -> new Thread(a, "DB Thread"));
 
     @Override
@@ -157,6 +159,7 @@ public class MyListener implements EventListener {
     private void onMessageReceived(MessageReceivedEvent event) {
         //locales generation (dynamic strings from file selectionable by language)
         ResourceBundle output = ResourceBundle.getBundle("messages");
+        if(!initializing.contains(event.getGuild()))
         if (checkConnection()) {
             Guild guild = event.getGuild();
 
@@ -447,6 +450,7 @@ public class MyListener implements EventListener {
 
     private void onMemberRoleAdded(GuildMemberRoleAddEvent event) {
         ResourceBundle output = ResourceBundle.getBundle("messages");
+        if(!initializing.contains(event.getGuild()))
         try {
             if (checkConnection()) {
                 Guild guild = event.getGuild();
@@ -475,6 +479,7 @@ public class MyListener implements EventListener {
 
     private void onMemberRoleRemoved(GuildMemberRoleRemoveEvent event) {
         ResourceBundle output = ResourceBundle.getBundle("messages");
+        if(!initializing.contains(event.getGuild()))
         try {
             if (checkConnection()) {
                 Guild guild = event.getGuild();
@@ -502,6 +507,7 @@ public class MyListener implements EventListener {
 
     private void onMemberNick(GuildMemberNickChangeEvent event) {
         ResourceBundle output = ResourceBundle.getBundle("messages");
+        if(!initializing.contains(event.getGuild()))
         try {
             if (checkConnection()) {
                 Guild guild = event.getGuild();
@@ -547,6 +553,7 @@ public class MyListener implements EventListener {
 
     private void onMemberJoin(GuildMemberJoinEvent event) {
         ResourceBundle output = ResourceBundle.getBundle("messages");
+        if(!initializing.contains(event.getGuild()))
         try {
             if (checkConnection()) {
 
@@ -617,6 +624,7 @@ public class MyListener implements EventListener {
 
     private void onMemberLeave(GuildMemberLeaveEvent event) {
         ResourceBundle output = ResourceBundle.getBundle("messages");
+        if(!initializing.contains(event.getGuild()))
         try {
             if (checkConnection()) {
                 Guild guild = event.getGuild();
@@ -643,6 +651,7 @@ public class MyListener implements EventListener {
 
     private void onRoleDelete(RoleDeleteEvent event) {
         ResourceBundle output;
+        if(!initializing.contains(event.getGuild()))
         try {
             if (checkConnection()) {
                 output = ResourceBundle.getBundle("messages");
@@ -710,6 +719,7 @@ public class MyListener implements EventListener {
     private void onGuildJoin(GuildJoinEvent event) {
         ResourceBundle output = ResourceBundle.getBundle("messages");
         Logger.logger.logEvent("GUILD HAS JOINED", event.getGuild());
+        initializing.add(event.getGuild());
         try {
             if (!dbExecutor.submit(() -> dbInterface.guildIsInDb(event.getGuild())).get()) {
                 try {
@@ -728,6 +738,7 @@ public class MyListener implements EventListener {
             e.printStackTrace();
         }
         updateServerCount(event.getJDA());
+        initializing.remove(event.getGuild());
     }
 
     private void onGuildLeave(GuildLeaveEvent event) {
