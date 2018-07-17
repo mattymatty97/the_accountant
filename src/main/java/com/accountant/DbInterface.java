@@ -842,7 +842,9 @@ public class DbInterface {
             ResultSet rs = stmt.executeQuery();
             while (rs.next()) {
                 Role role = guild.getRoleById(rs.getLong("roleId"));
-                if (role != null && (role.getPosition() < guild.getSelfMember().getRoles().stream().mapToInt(Role::getPosition).max().orElse(0))) {
+                if (role != null &&
+                        (role.getPosition() < guild.getSelfMember().getRoles().stream().mapToInt(Role::getPosition).max().orElse(0)) &&
+                        !rs.wasNull() ) {
                     roles.add(role);
                     restored = true;
                     if (role.getName().matches(".*[Mm][Uu][Tt][Ee][Dd].*"))
