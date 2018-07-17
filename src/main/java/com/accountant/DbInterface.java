@@ -435,29 +435,10 @@ public class DbInterface {
         } catch (SQLException ex) {
             sqlError(sql, ex);
         }
-        guild.getMembers().forEach(a -> {
-            String sql2 = "";
-            try {
-                int ctn = 0;
-                PreparedStatement stmt1 = conn.prepareStatement("INSERT INTO MemberRoles(guildId, userId, roleId) VALUES (?,?,?)");
-                stmt1.setLong(1, guild.getIdLong());
-                stmt1.setLong(2, a.getUser().getIdLong());
-                for (Role role : a.getRoles()) {
-                    stmt1.setLong(3, role.getIdLong());
-                    ctn += stmt1.executeUpdate();
-                }
-                stmt1.close();
-                stmt1 = conn.prepareStatement("INSERT INTO MemberNick(guildId, userId, nickname) VALUES (?,?,?)");
-                stmt1.setLong(1, guild.getIdLong());
-                stmt1.setLong(2, a.getUser().getIdLong());
-                stmt1.setString(3, a.getNickname());
-                ctn += stmt1.executeUpdate();
-                if (ctn > 0)
-                    conn.commit();
-                stmt1.close();
-            } catch (SQLException ex) {
-                sqlError(sql2, ex);
-            }
+        guild.getMembers().forEach(m -> {
+            memorizeRole(guild,m.getUser(),m.getRoles());
+            baseRole(guild,m.getUser());
+            memUname(m);
         });
     }
 
