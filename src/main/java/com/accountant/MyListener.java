@@ -179,7 +179,7 @@ public class MyListener implements EventListener {
                 //get id
                 long messageId = message.getIdLong();
 
-                boolean admin = dbExecutor.submit(() ->
+                boolean isAdmin = dbExecutor.submit(() ->
                         dbInterface.memberIsAdmin(member, guild.getIdLong())
                 ).get();
 
@@ -195,7 +195,7 @@ public class MyListener implements EventListener {
 
                     case "help":
                         Logger.logger.logMessage("help", message);
-                        PrintHelp(channel, member, guild, admin);
+                        PrintHelp(channel, member, guild, isAdmin);
                         Logger.logger.logReponse("help shown", guild, messageId);
                         break;
 
@@ -217,7 +217,7 @@ public class MyListener implements EventListener {
                     case "admin":
                         channel.sendTyping().queue();
                         //if member is allowed
-                        if (member.isOwner() || admin) {
+                        if (member.isOwner() || isAdmin) {
                             //if there are other arguments
                             if (args.length > 1) {
                                 //get mentioned roles
@@ -313,7 +313,7 @@ public class MyListener implements EventListener {
                     case "roles":
                         channel.sendTyping().queue();
                         //if member is allowed
-                        if (member.isOwner() || admin) {
+                        if (member.isOwner() || isAdmin) {
                             Logger.logger.logMessage("roles", message);
                             StringBuilder ret = new StringBuilder();
                             ret.append(output.getString("roles-head")).append("\n");
@@ -332,7 +332,7 @@ public class MyListener implements EventListener {
 //------ADMIN---------------FORGIVE---------------------------------------
                     case "forget":
                         //if member is allowed
-                        if (member.isOwner() || admin) {
+                        if (member.isOwner() || isAdmin) {
                             //if there are other arguments
                             channel.sendTyping().queue();
                             Logger.logger.logMessage("forgive", message);
@@ -359,7 +359,7 @@ public class MyListener implements EventListener {
                         break;
 //------ADMIN--------------CHANNEL-----------------------------------------
                     case "wbchannel":
-                        if (member.isOwner() || admin) {
+                        if (member.isOwner() || isAdmin) {
                             //if there are other arguments
                             channel.sendTyping().queue();
                             Logger.logger.logMessage("wbchannel", message);
@@ -380,7 +380,7 @@ public class MyListener implements EventListener {
                         }
                         break;
                     case "wbtest":
-                        if (member.isOwner() || admin) {
+                        if (member.isOwner() || isAdmin) {
                             //if there are other arguments
                             channel.sendTyping().queue();
                             Logger.logger.logMessage("wbtest", message);
@@ -403,7 +403,7 @@ public class MyListener implements EventListener {
 //------ADMIN--------------DELAY---------------------------------------------
                     case "delay":
                         //if member is allowed
-                        if (member.isOwner() || admin) {
+                        if (member.isOwner() || isAdmin) {
                             //if there are other arguments
                             channel.sendTyping().queue();
                             Logger.logger.logMessage("delay", message);
@@ -834,19 +834,31 @@ public class MyListener implements EventListener {
     }
 
 
-    private void SendMsg(MessageChannel channel, String text) {
-        int messages = ((Double) Math.ceil(text.length() / 1000.0)).intValue();
+    private void SendMsg(MessageChannel channel, String text){
+        SendMsg(channel,text,null);
+    }
+
+    @SuppressWarnings("all")
+    private void SendMsg(MessageChannel channel, String text, String codeStyle) {
+        boolean codeBlock = codeStyle!=null;
+        long messages = Math.round((Math.ceil(text.length() / 1000.0)));
         if (messages > 1) {
             int s = 0;
-            for (int i = 0; i < messages; i++) {
-                int p = s, a = s;
+            int p = s,a;
+            while (p!=text.length()){
+                a = s;
                 while ((a - s) < 1000 & a != -1) {
                     p = a;
                     a = text.indexOf("\n", p + 1);
                 }
                 if (a == -1)
                     p = text.length();
-                channel.sendMessage(text.substring(s, p)).queue();
+                if(p>s)
+                    channel.sendMessage(
+                            ((codeBlock)?"```"+codeStyle+"\n":"") +
+                                    text.substring(s, p) +
+                                    ((codeBlock)?"\n```":"")
+                    ).queue();
                 s = p;
             }
         } else {
