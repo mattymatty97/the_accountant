@@ -46,8 +46,8 @@ public class Logger implements Runnable{
 
     public void logMessage(String log, Message message) {
 
-
-        String time = stf.format(new Date());
+        Date now = new Date();
+        String time = stf.format(now);
         StringBuilder sb = new StringBuilder();
         StringBuilder sbt = new StringBuilder();
         Member sender = message.getMember();
@@ -61,13 +61,14 @@ public class Logger implements Runnable{
 
         Output.println(sbt.toString() + ansi().fgBrightYellow().a(sb.toString()).reset().toString());
 
-        queue.add(new GuildMsg(sbt.toString() + sb.toString(), message.getGuild(),false));
+        queue.add(new GuildMsg(now,sbt.toString() + sb.toString(), message.getGuild(),false));
         sem.release();
     }
 
     public void logReponse(String log,Guild guild,long messageId){
 
-        String time = stf.format(new Date());
+        Date now = new Date();
+        String time = stf.format(now);
         StringBuilder sb = new StringBuilder();
         StringBuilder sbt = new StringBuilder();
 
@@ -77,13 +78,14 @@ public class Logger implements Runnable{
 
         Output.println(sbt.toString() + ansi().reset() + sb.toString());
 
-        queue.add(new GuildMsg(sbt.toString() + sb.toString(), guild,true));
+        queue.add(new GuildMsg(now,sbt.toString() + sb.toString(), guild,true));
         sem.release();
     }
 
     public void logEvent(String log,Guild guild){
 
-        String time = stf.format(new Date());
+        Date now = new Date();
+        String time = stf.format(now);
         StringBuilder sb = new StringBuilder();
 
         logGeneral(log+": "+guild.getName());
@@ -92,7 +94,7 @@ public class Logger implements Runnable{
 
         sb.append(log);
 
-        queue.add(new GuildMsg(sb.toString(), guild,false));
+        queue.add(new GuildMsg(now,sb.toString(), guild,false));
         sem.release();
     }
 
@@ -106,7 +108,8 @@ public class Logger implements Runnable{
         if (!started) {
             debug = "";
         }
-        String time = stf.format(new Date());
+        Date now = new Date();
+        String time = stf.format(now);
         StringBuilder sb = new StringBuilder();
         StringBuilder sbt = new StringBuilder();
 
@@ -120,7 +123,7 @@ public class Logger implements Runnable{
 
         Output.println(debug + sbt + ansi().reset().fgBrightYellow().a(sb.toString()+": "+guild.getName()).reset().toString());
 
-        queue.add(new GuildMsg(sbt + sb.toString(), guild,false));
+        queue.add(new GuildMsg(now,sbt + sb.toString(), guild,false));
         sem.release();
     }
 
@@ -135,7 +138,8 @@ public class Logger implements Runnable{
             debug = "";
         }
 
-        String time = stf.format(new Date());
+        Date now = new Date();
+        String time = stf.format(now);
         StringBuilder sbt = new StringBuilder();
         sbt.append("[").append(time).append("]\t");
 
@@ -143,7 +147,7 @@ public class Logger implements Runnable{
         Output.println(debug + sbt.toString() + ansi().fgRed().a(log).reset());
 
 
-        queue.add(new GeneralMsg(sbt.toString()+log));
+        queue.add(new GeneralMsg(now,sbt.toString()+log));
         sem.release();
     }
 
@@ -159,19 +163,21 @@ public class Logger implements Runnable{
             debug = "";
         }
 
-        String time = stf.format(new Date());
+        Date now = new Date();
+        String time = stf.format(now);
         StringBuilder sbt = new StringBuilder();
         sbt.append("[").append(time).append("]\t");
 
         Output.println(debug + sbt.toString() + ansi().fgYellow().a(log).reset());
 
 
-        queue.add(new GeneralMsg(sbt.toString() + log));
+        queue.add(new GeneralMsg(now,sbt.toString() + log));
         sem.release();
     }
 
     public void logInit() {
-        String date = sdf.format(new Date());
+        Date now = new Date();
+        String date = sdf.format(now);
         File file = new File("./logs/"+date+"/BOT.log");
         if(file.getParentFile().exists() || file.getParentFile().mkdirs()) {
             try {
@@ -188,8 +194,8 @@ public class Logger implements Runnable{
         }
     }
 
-    private FileWriter openFile(Guild guild) {
-        String date = sdf.format(new Date());
+    private FileWriter openFile(Date current,Guild guild) {
+        String date = sdf.format(current);
         File file = new File("./logs/"+date+"/"+guild.getIdLong()+".log");
         if (!date.equals(lastDate)) {
             closeFiles();
@@ -221,8 +227,8 @@ public class Logger implements Runnable{
         return null;
     }
 
-    private FileWriter openFile() {
-        String date = sdf.format(new Date());
+    private FileWriter openFile(Date current) {
+        String date = sdf.format(current);
         File file = new File("./logs/"+date+"/BOT.log");
         if (!date.equals(lastDate)) {
             closeFiles();
@@ -285,7 +291,7 @@ public class Logger implements Runnable{
             FileWriter fw, fw1, fw2;
             Datas data = queue.poll();
             if (data instanceof GeneralMsg) {
-                if ((fw = openFile()) != null) {
+                if ((fw = openFile(data.getDate())) != null) {
                     try {
                         fw.append(data.getText()).append("\r\n");
                         fw.flush();
@@ -296,7 +302,7 @@ public class Logger implements Runnable{
             } else if (data instanceof RemoteMsg) {
                 RemoteMsg rem = (RemoteMsg)data;
                 if (rem.isReponse()) {
-                    if ((fw1 = openFile(rem.getGuild())) != null && (fw2 = openFile(rem.getRemote())) != null) {
+                    if ((fw1 = openFile(data.getDate(),rem.getGuild())) != null && (fw2 = openFile(data.getDate(),rem.getRemote())) != null) {
                         try {
                             fw1.append(rem.getText()).append("\r\n");
                             fw2.append(rem.getText()).append("\r\n");
@@ -307,7 +313,7 @@ public class Logger implements Runnable{
                         }
                     }
                 } else {
-                    if ((fw = openFile(rem.getGuild())) != null) {
+                    if ((fw = openFile(data.getDate(),rem.getGuild())) != null) {
                         try {
                             fw.append(rem.getText());
                             fw.append(" on guild ").append(rem.getRemote().getName());
@@ -317,7 +323,7 @@ public class Logger implements Runnable{
                             ex.printStackTrace();
                         }
                     }
-                    if ((fw = openFile(rem.getRemote())) != null) {
+                    if ((fw = openFile(data.getDate(),rem.getRemote())) != null) {
                         try {
                             fw.append(rem.getText());
                             fw.append(" remotely");
@@ -328,9 +334,9 @@ public class Logger implements Runnable{
                         }
                     }
                 }
-            } else {
+            } else if(data instanceof GuildMsg){
                 GuildMsg msg = (GuildMsg)data;
-                if ((fw = openFile(msg.getGuild())) != null) {
+                if ((fw = openFile(data.getDate(),msg.getGuild())) != null) {
                     try {
                         fw.append(msg.getText()).append("\r\n");
                         fw.flush();
