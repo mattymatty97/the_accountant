@@ -24,7 +24,6 @@ public class BOT
         Thread mine = Thread.currentThread();
 
 
-
         Logger.tlogger.setPriority(Thread.NORM_PRIORITY - 2);
         Logger.tlogger.start();
 
@@ -46,13 +45,17 @@ public class BOT
             System.exit(-1);
         }
 
+
+
+        JDA api = new JDABuilder(AccountType.BOT).setToken(System.getenv("BOT_TOKEN")).buildBlocking(JDA.Status.LOADING_SUBSYSTEMS);
+
+        MyListener listener = new MyListener(conn);
+
         Thread ac = new Thread(new AutoCleaner(conn),"Cleaner Thread");
         ac.setPriority(Thread.NORM_PRIORITY - 1);
 
-
-        JDA api = new JDABuilder(AccountType.BOT).setToken(System.getenv("BOT_TOKEN")).buildAsync();
-
-        MyListener listener = new MyListener(conn);
+        Thread ping = new Thread(new Pinger(api.getSelfUser().getIdLong()),"Ping-er Thread");
+        ping.setPriority(Thread.MAX_PRIORITY);
 
         Thread shutdown = new Thread(()-> {
             mine.interrupt();
@@ -60,6 +63,7 @@ public class BOT
             System.out.println((char)27+"[?25h");
             System.err.println(ansi().fgRed().a("Closing program").reset());
             ac.interrupt();
+            ping.interrupt();
             listener.close();
             api.shutdown();
             Logger.tlogger.interrupt();
@@ -80,6 +84,8 @@ public class BOT
 
         ac.start();
 
+        ping.start();
+
         while (!Logger.started && !Thread.interrupted()) ;
 
         Output.run();
@@ -98,7 +104,7 @@ public class BOT
 
         var = env.get("BOT_PREFIX");
         if (var == null || var.isEmpty())
-            throw new Exception("Missing environement variable: DEFAULT_EMOJI_PREFIX");
+            throw new Exception("Missing environement variable: BOT_PREFIX");
 
         var = env.get("DISCORDBOTS_KEY");
         if (var == null)
@@ -124,6 +130,9 @@ public class BOT
                 throw new Exception("Environement variable ( OWNER_ID ) is not valid");
             }
 
+        var = env.get("LISTENER_IP");
+        if (var == null || var.isEmpty())
+            throw new Exception("Missing environement variable: LISTENER_IP");
     }
 
 }
