@@ -403,7 +403,13 @@ public class MyListener implements EventListener {
                                         channel.sendMessage(output.getString("limitrole-text")+" "+ myrole.getAsMention()).queue();
                                         break;
                                     }
+//------ADMIN---------------DELETE-----------------------------------------
+                                    case "delete":{
+                                        channel.getHistory().getRetrievedHistory().stream().filter(m -> m.getMember().equals(guild.getSelfMember()))
+                                        .max(Comparator.comparing(Message::getCreationTime)).ifPresent(m -> m.delete().queue());
+                                    }
                                 }
+
 
                             } else {
                                 Logger.logger.logMessage("forgive", message);
@@ -764,6 +770,8 @@ public class MyListener implements EventListener {
             helpMsg.addField("delay", output.getString("help-def-delay"), false);
 
             helpMsg.addField("limitrole", output.getString("help-def-limit"), false);
+
+            helpMsg.addField("delete", output.getString("help-def-delete"), false);
         }
 
         helpMsg.addField("", output.getString("help-last"), false);
