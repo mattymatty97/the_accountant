@@ -824,7 +824,7 @@ public class DbInterface {
             while (rs.next()) {
                 Role role = guild.getRoleById(rs.getLong("roleId"));
                 if (role != null &&
-                        (role.getPosition() < guild.getSelfMember().getRoles().stream().mapToInt(Role::getPosition).max().orElse(0)) &&
+                        (role.getPosition() < guild.getSelfMember().getRoles().stream().filter(Role::isManaged).mapToInt(Role::getPosition).max().orElse(0)) &&
                         !rs.wasNull() ) {
                     roles.add(role);
                     restored = true;
