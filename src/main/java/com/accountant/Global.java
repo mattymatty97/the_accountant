@@ -12,7 +12,7 @@ import java.util.Queue;
 @SuppressWarnings("WeakerAccess")
 public class Global {
     public static final String version = "v3.1 - ac prj";
-    public static final String build = "1";
+    public static final String build = "2";
 
     private static Global gbl = new Global();
 

@@ -400,7 +400,7 @@ public class MyListener implements EventListener {
 //------ADMIN---------------LIMITROLE-----------------------------------------
                                     case "limitrole": {
                                         Role myrole = guild.getSelfMember().getRoles().stream().filter(Role::isManaged).max(Comparator.comparingLong(Role::getPosition)).orElse(guild.getPublicRole());
-                                        channel.sendMessage("I'll restore every role under "+ myrole.getAsMention()).queue();
+                                        channel.sendMessage(output.getString("limitrole-text")+" "+ myrole.getAsMention()).queue();
                                         break;
                                     }
                                 }
