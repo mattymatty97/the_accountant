@@ -10,9 +10,7 @@ import java.util.Optional;
 public class Announcement {
     public static void main(String[] arguments) throws Exception{
 
-        String message = "ANNOUNCEMENT: starting from now this bot will only restore roles that are lower than its selfRole (@accountant)\n" +
-                "please check your roles to restore the correct working\n" +
-                "**ac?limitrole** is available to admins for check which is the selfRole";
+        String message = "";
 
         JDA api = new JDABuilder(AccountType.BOT).setToken(System.getenv("BOT_TOKEN")).buildBlocking();
 

@@ -405,8 +405,11 @@ public class MyListener implements EventListener {
                                     }
 //------ADMIN---------------DELETE-----------------------------------------
                                     case "delete":{
-                                        channel.getHistory().getRetrievedHistory().stream().filter(m -> m.getMember().equals(guild.getSelfMember()))
+                                        MessageHistory history = channel.getHistory();
+                                        history.retrievePast(10).complete();
+                                        history.getRetrievedHistory().stream().filter(m -> m.getMember().equals(guild.getSelfMember()))
                                         .max(Comparator.comparing(Message::getCreationTime)).ifPresent(m -> m.delete().queue());
+                                        break;
                                     }
                                 }
 
