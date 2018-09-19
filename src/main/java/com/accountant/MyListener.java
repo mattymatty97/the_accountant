@@ -213,6 +213,18 @@ public class MyListener implements EventListener {
                                 Global.getGbl().setListener(null);
                             }
                             break;
+//------USER-------------------SUPPORT---------------------------------------
+                        case "support":
+                            Logger.logger.logMessage("support", message);
+                            channel.sendMessage(output.getString("support-msg")).queue();
+                            Logger.logger.logReponse("support link sent", guild, messageId);
+                            break;
+//------USER-------------------OTHER---------------------------------------
+                        case "other":
+                            Logger.logger.logMessage("other", message);
+                            channel.sendMessage(output.getString("other-msg")).queue();
+                            Logger.logger.logReponse("other bots sent", guild, messageId);
+                            break;
                         default:
 //------OWNER--------------RELOAD--------------------------------------------
                             //if it's bot owner
@@ -754,6 +766,8 @@ public class MyListener implements EventListener {
         helpMsg.setDescription(output.getString("help-description"));
         helpMsg.addField("help", output.getString("help-def-help"), false);
         helpMsg.addField("ping", output.getString("help-def-ping"), false);
+        helpMsg.addField("support", output.getString("help-def-support"), false);
+        helpMsg.addField("other", output.getString("help-def-other"), false);
 
         //if is allowed to use mod commands
         if (member.isOwner() || admin) {

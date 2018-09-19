@@ -78,6 +78,7 @@ public class BOT
         Runtime.getRuntime().addShutdownHook(shutdown);
 
         api.addEventListener(listener);
+        api.addEventListener(new SupportListener(491954111953108992L));
         api.getPresence().setGame(Game.playing(Global.version));
 
         while (Logger.started);
