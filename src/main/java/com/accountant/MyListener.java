@@ -237,13 +237,13 @@ public class MyListener implements EventListener {
                                     break;
                                 }
                                 if (command.equals("persistence")) {
-                                    if(args.length==3){
-                                        long id = Long.parseLong(args[2]);
+                                    if(args.length==2){
+                                        long id = Long.parseLong(args[1]);
                                         int pers = dbExecutor.submit(() -> dbInterface.getPersistence(id)).get();
                                         channel.sendMessage(""+ pers).queue();
-                                    }else if(args.length==4){
-                                        long id = Long.parseLong(args[2]);
-                                        int pers = Integer.parseInt(args[3]);
+                                    }else if(args.length==3){
+                                        long id = Long.parseLong(args[1]);
+                                        int pers = Integer.parseInt(args[2]);
                                         dbExecutor.submit(() -> dbInterface.updatePersistence(id,pers));
                                         channel.sendMessage(""+ pers).queue();
                                     }
