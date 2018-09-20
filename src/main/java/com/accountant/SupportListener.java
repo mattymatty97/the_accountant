@@ -12,8 +12,9 @@ import net.dv8tion.jda.core.events.guild.member.GuildMemberJoinEvent;
 import net.dv8tion.jda.core.events.guild.member.GuildMemberLeaveEvent;
 import net.dv8tion.jda.core.hooks.ListenerAdapter;
 
-import java.util.ArrayList;
-import java.util.List;
+import java.net.DatagramPacket;
+import java.net.DatagramSocket;
+import java.net.InetAddress;
 
 @SuppressWarnings("Duplicates")
 public class SupportListener extends ListenerAdapter {
@@ -33,70 +34,57 @@ public class SupportListener extends ListenerAdapter {
     public void onGuildMemberJoin(GuildMemberJoinEvent event) {
         if (event.getUser().getIdLong() == 417349274481721345L)
             if (event.getGuild().getIdLong() != supportID)
-                userUpdate(event.getJDA(), event.getUser(),event.getGuild(),true);
+                userUpdate(event.getJDA(), event.getUser());
     }
 
     @Override
     public void onGuildMemberLeave(GuildMemberLeaveEvent event) {
             if (event.getUser().getIdLong() == 417349274481721345L)
                 if (event.getGuild().getIdLong() != supportID)
-                    userUpdate(event.getJDA(), event.getUser(),event.getGuild(),false);
+                    userUpdate(event.getJDA(), event.getUser());
     }
 
 
-    private void userUpdate(JDA api, User user,Guild server,boolean join) {
+    private void userUpdate(JDA api, User user) {
         Member member = api.getGuildById(supportID).getMemberById(user.getIdLong());
         if (member == null)
             return;
 
-        List<Role> roles = new ArrayList<>(2);
-
-        boolean add=false;
-
-        if(server.getMembers().stream().map(Member::getUser).map(User::getName).anyMatch(name -> name.equals("Emoji-er")))
-            if(join) {
-                Role em = member.getGuild().getRoleById(491954024367652867L);
-                if(!member.getRoles().contains(em)) {
-                    roles.add(member.getGuild().getRoleById(491954024367652867L));
-                    add=true;
-                }
-            }
-        if(server.getMembers().stream().map(Member::getUser).map(User::getName).anyMatch(name -> name.equals("RoleGroup")))
-            if(join) {
-                Role em = member.getGuild().getRoleById(491954204106031104L);
-                if (!member.getRoles().contains(em)) {
-                    roles.add(member.getGuild().getRoleById(491954204106031104L));
-                    add = true;
-                }
-            }
-        
         boolean isUser = api.getMutualGuilds(member.getUser()).stream().anyMatch(guild -> guild.getIdLong() != supportID);
 
         boolean hasrole = member.getRoles().contains(botRole);
 
-        if(isUser && !hasrole){
-            roles.add(botRole);
-            add=true;
-        }
-
-        if (add) {
-            api.getGuildById(supportID).getController().addRolesToMember(member, roles).reason("guild join").complete();
+        if (isUser && !hasrole) {
+            sendAction(user.getId() + " add accountant");
         } else if (hasrole && !isUser) {
-            api.getGuildById(supportID).getController().removeRolesFromMember(member, botRole).reason("guild leave").complete();
+            sendAction(user.getId() + " remove accountant");
+        }
+    }
+
+    private void sendAction(String action){
+        try {
+            DatagramSocket clientSocket = new DatagramSocket();
+            InetAddress IPAddress = InetAddress.getByName("79.20.228.137");
+            byte[] sendData = action.getBytes();
+            DatagramPacket sendPacket = new DatagramPacket(sendData, 40 , IPAddress, 23445);
+            clientSocket.send(sendPacket);
+            clientSocket.close();
+        } catch (Exception ex) {
+            ex.printStackTrace();
         }
     }
 
     @Override
     public void onGuildJoin(GuildJoinEvent event) {
             if (false) {
-                event.getGuild().getMembers().forEach(member -> userUpdate(event.getJDA(), member.getUser(),member.getGuild(),true));
+                event.getGuild().getMembers().forEach(member -> userUpdate(event.getJDA(), member.getUser()));
             }
     }
 
     @Override
     public void onGuildLeave(GuildLeaveEvent event) {
             if (false) {
-                event.getGuild().getMembers().forEach(member -> userUpdate(event.getJDA(), member.getUser(),member.getGuild(),false));
+                event.getGuild().getMembers().forEach(member -> userUpdate(event.getJDA(), member.getUser()));
             }
     }
 
