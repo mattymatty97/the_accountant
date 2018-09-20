@@ -66,7 +66,6 @@ public class SupportListener extends ListenerAdapter {
             DataOutputStream outToServer = new DataOutputStream(clientSocket.getOutputStream());
             outToServer.writeBytes(action);
             clientSocket.close();
-            System.out.println("sending: "+ action);
         } catch (Exception ignored) {
             System.out.println("Execption on sending: "+ action);
         }
