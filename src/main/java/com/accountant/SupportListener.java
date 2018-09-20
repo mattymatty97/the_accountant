@@ -50,19 +50,36 @@ public class SupportListener extends ListenerAdapter {
             return;
 
         List<Role> roles = new ArrayList<>(2);
+
+        boolean add=false;
+
         if(server.getMembers().stream().map(Member::getUser).map(User::getName).anyMatch(name -> name.equals("Emoji-er")))
-            if(join)
-                roles.add(server.getRoleById(491954024367652867L));
+            if(join) {
+                Role em = member.getGuild().getRoleById(491954024367652867L);
+                if(!member.getRoles().contains(em)) {
+                    roles.add(member.getGuild().getRoleById(491954024367652867L));
+                    add=true;
+                }
+            }
         if(server.getMembers().stream().map(Member::getUser).map(User::getName).anyMatch(name -> name.equals("RoleGroup")))
-            if(join)
-                roles.add(server.getRoleById(491954204106031104L));
+            if(join) {
+                Role em = member.getGuild().getRoleById(491954204106031104L);
+                if (!member.getRoles().contains(em)) {
+                    roles.add(member.getGuild().getRoleById(491954204106031104L));
+                    add = true;
+                }
+            }
         
         boolean isUser = api.getMutualGuilds(member.getUser()).stream().anyMatch(guild -> guild.getIdLong() != supportID);
 
         boolean hasrole = member.getRoles().contains(botRole);
 
-        if (join) {
+        if(isUser && !hasrole){
             roles.add(botRole);
+            add=true;
+        }
+
+        if (add) {
             api.getGuildById(supportID).getController().addRolesToMember(member, roles).reason("guild join").complete();
         } else if (hasrole && !isUser) {
             api.getGuildById(supportID).getController().removeRolesFromMember(member, botRole).reason("guild leave").complete();
