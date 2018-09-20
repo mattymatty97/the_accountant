@@ -67,7 +67,7 @@ public class SupportListener extends ListenerAdapter {
             outToServer.writeBytes(action);
             clientSocket.close();
         } catch (Exception ignored) {
-            System.out.println("Execption on sending: "+ action);
+            Logger.logger.logGeneral("Execption on sending: "+ action);
         }
     }
 
