@@ -11,8 +11,8 @@ import java.util.Queue;
 
 @SuppressWarnings("WeakerAccess")
 public class Global {
-    public static final String version = "v3.2 - ac prj";
-    public static final String build = "5";
+    public static final String version = "v3.3 - ac prj";
+    public static final String build = "1";
 
     private static Global gbl = new Global();
 

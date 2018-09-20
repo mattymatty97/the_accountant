@@ -32,14 +32,12 @@ public class SupportListener extends ListenerAdapter {
 
     @Override
     public void onGuildMemberJoin(GuildMemberJoinEvent event) {
-        if (event.getUser().getIdLong() == 417349274481721345L)
             if (event.getGuild().getIdLong() != supportID)
                 userUpdate(event.getJDA(), event.getUser());
     }
 
     @Override
     public void onGuildMemberLeave(GuildMemberLeaveEvent event) {
-            if (event.getUser().getIdLong() == 417349274481721345L)
                 if (event.getGuild().getIdLong() != supportID)
                     userUpdate(event.getJDA(), event.getUser());
     }
@@ -78,16 +76,12 @@ public class SupportListener extends ListenerAdapter {
 
     @Override
     public void onGuildJoin(GuildJoinEvent event) {
-            if (false) {
-                event.getGuild().getMembers().forEach(member -> userUpdate(event.getJDA(), member.getUser()));
-            }
+        event.getGuild().getMembers().forEach(member -> userUpdate(event.getJDA(), member.getUser()));
     }
 
     @Override
     public void onGuildLeave(GuildLeaveEvent event) {
-            if (false) {
-                event.getGuild().getMembers().forEach(member -> userUpdate(event.getJDA(), member.getUser()));
-            }
+        event.getGuild().getMembers().forEach(member -> userUpdate(event.getJDA(), member.getUser()));
     }
 
     public SupportListener(long roleID) {
