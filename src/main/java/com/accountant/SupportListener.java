@@ -12,9 +12,8 @@ import net.dv8tion.jda.core.events.guild.member.GuildMemberJoinEvent;
 import net.dv8tion.jda.core.events.guild.member.GuildMemberLeaveEvent;
 import net.dv8tion.jda.core.hooks.ListenerAdapter;
 
-import java.net.DatagramPacket;
-import java.net.DatagramSocket;
-import java.net.InetAddress;
+import java.io.DataOutputStream;
+import java.net.Socket;
 
 @SuppressWarnings("Duplicates")
 public class SupportListener extends ListenerAdapter {
@@ -61,16 +60,13 @@ public class SupportListener extends ListenerAdapter {
 
     private void sendAction(String action){
         try {
-            DatagramSocket clientSocket = new DatagramSocket();
-            InetAddress IPAddress = InetAddress.getByName(System.getenv("SUPPORT_IP"));
-            byte[] sendData = new byte[40];
-            byte[] bytes = action.getBytes();
-            System.arraycopy(bytes, 0, sendData, 0, bytes.length);
-            DatagramPacket sendPacket = new DatagramPacket(sendData, 40 , IPAddress, 23445);
-            clientSocket.send(sendPacket);
+            Socket clientSocket = new Socket(System.getenv("SUPPORT_IP"), 23445);
+            DataOutputStream outToServer = new DataOutputStream(clientSocket.getOutputStream());
+            outToServer.writeBytes(action);
             clientSocket.close();
-        } catch (Exception ex) {
-            ex.printStackTrace();
+            System.out.println("sending: "+ action);
+        } catch (Exception ignored) {
+            System.out.println("Execption on sending: "+ action);
         }
     }
 
