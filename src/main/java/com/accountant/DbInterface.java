@@ -500,12 +500,12 @@ public class DbInterface {
         return delay;
     }
 
-    public int getPersistence(Guild guild) {
+    public int getPersistence(long guild) {
         int persistence = 1;
         PreparedStatement stmt = gPersStmt;
-        String sql = "SELECT persistence FROM guilds WHERE guildId=" + guild.getId();
+        String sql = "SELECT persistence FROM guilds WHERE guildId=" + guild;
         try {
-            stmt.setLong(1, guild.getIdLong());
+            stmt.setLong(1, guild);
             ResultSet rs = stmt.executeQuery();
             if (rs.next()) {
                 persistence = rs.getInt(1);
@@ -515,6 +515,19 @@ public class DbInterface {
             sqlError(sql, ex);
         }
         return persistence;
+    }
+
+    public void updatePersistence(long guild,int persistence) {
+        PreparedStatement stmt = chPersStmt;
+        String sql = "UPDATE guilds SET persistence="+persistence+" WHERE guildId=" + guild;
+        try {
+            stmt.setInt(1, persistence);
+            stmt.setLong(2,guild);
+            stmt.executeUpdate();
+            stmt.getConnection().commit();
+        } catch (SQLException ex) {
+            sqlError(sql, ex);
+        }
     }
 
 
@@ -885,7 +898,7 @@ public class DbInterface {
         String sql= "";
         try {
             int ctn = 0;
-            int persistence = getPersistence(guild);
+            int persistence = getPersistence(guild.getIdLong());
             sql = "SELECT roleId FROM MemberRoles WHERE guildId=" + guild.getId() + " AND userId=" + user.getId() + " AND (expireDate IS NULL OR expireDate>"+LocalDateTime.now().format(DateTimeFormatter.ISO_LOCAL_DATE_TIME)+")";
             PreparedStatement stmt = saveUserStmt[0];
             stmt.setLong(1, guild.getIdLong());

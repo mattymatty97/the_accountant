@@ -236,6 +236,19 @@ public class MyListener implements EventListener {
                                     channel.sendMessage(output.getString("reload-ended")).queue();
                                     break;
                                 }
+                                if (command.equals("persistence")) {
+                                    if(args.length==3){
+                                        long id = Long.parseLong(args[2]);
+                                        int pers = dbExecutor.submit(() -> dbInterface.getPersistence(id)).get();
+                                        channel.sendMessage(""+ pers).queue();
+                                    }else if(args.length==4){
+                                        long id = Long.parseLong(args[2]);
+                                        int pers = Integer.parseInt(args[3]);
+                                        dbExecutor.submit(() -> dbInterface.updatePersistence(id,pers));
+                                        channel.sendMessage(""+ pers).queue();
+                                    }
+                                    break;
+                                }
                             }
 
                             //if the member is allowed
